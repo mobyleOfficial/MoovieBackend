@@ -48,3 +48,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Claude ###
+.claude/
