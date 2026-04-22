@@ -1,0 +1,28 @@
+# Build output (we build inside the image)
+build/
+out/
+
+# Gradle
+.gradle/
+!gradle/wrapper/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Local config
+local.properties
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+*.log
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(dart|yaml\\)$\")",
+      "Bash(cp -r \"C:/Users/Abe/Desktop/Projetos/Personal-Blog/personal-blog-backend/blog-backend/gradle\" \"C:/Users/Abe/Desktop/Projetos/Mobyle/MoovieBackend/gradle\")",
+      "Bash(cp \"C:/Users/Abe/Desktop/Projetos/Personal-Blog/personal-blog-backend/blog-backend/gradlew\" \"C:/Users/Abe/Desktop/Projetos/Mobyle/MoovieBackend/gradlew\")",
+      "Bash(cp \"C:/Users/Abe/Desktop/Projetos/Personal-Blog/personal-blog-backend/blog-backend/gradlew.bat\" \"C:/Users/Abe/Desktop/Projetos/Mobyle/MoovieBackend/gradlew.bat\")",
+      "Bash(./gradlew build:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
