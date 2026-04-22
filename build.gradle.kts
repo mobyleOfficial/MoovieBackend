@@ -4,7 +4,7 @@ plugins {
     id("io.ktor.plugin") version "3.1.1"
 }
 
-group = "org.example"
+group = "org.mobyle"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -51,5 +51,5 @@ tasks.test {
 }
 
 application {
-    mainClass.set("org.example.MainKt")
+    mainClass.set("org.mobyle.MainKt")
 }

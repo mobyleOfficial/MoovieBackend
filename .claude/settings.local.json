@@ -6,7 +6,9 @@
       "Bash(cp \"C:/Users/Abe/Desktop/Projetos/Personal-Blog/personal-blog-backend/blog-backend/gradlew\" \"C:/Users/Abe/Desktop/Projetos/Mobyle/MoovieBackend/gradlew\")",
       "Bash(cp \"C:/Users/Abe/Desktop/Projetos/Personal-Blog/personal-blog-backend/blog-backend/gradlew.bat\" \"C:/Users/Abe/Desktop/Projetos/Mobyle/MoovieBackend/gradlew.bat\")",
       "Bash(./gradlew build:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(find src:*)",
+      "Bash(sed -i 's/org\\\\.example/org.mobyle/g' build.gradle.kts)"
     ]
   }
 }
