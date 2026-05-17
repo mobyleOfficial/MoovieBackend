@@ -8,11 +8,15 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import org.mobyle.data.remote.CommentsDataSource
+import org.mobyle.data.remote.CommentsDataSourceImpl
 import org.mobyle.data.remote.TmdbDataSource
 import org.mobyle.data.remote.TmdbDataSourceImpl
+import org.mobyle.data.repository.CommentsRepositoryImpl
 import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
 import org.mobyle.data.repository.UserActivitiesRepositoryImpl
+import org.mobyle.domain.repository.CommentsRepository
 import org.mobyle.domain.repository.MoviesRepository
 import org.mobyle.domain.repository.ProfileRepository
 import org.mobyle.domain.repository.UserActivitiesRepository
@@ -58,5 +62,13 @@ val dataModule = module {
 
     single<UserActivitiesRepository> {
         UserActivitiesRepositoryImpl()
+    }
+
+    single<CommentsDataSource> {
+        CommentsDataSourceImpl()
+    }
+
+    single<CommentsRepository> {
+        CommentsRepositoryImpl(commentsDataSource = get())
     }
 }

@@ -1,5 +1,6 @@
 package org.mobyle.di
 
+import org.mobyle.domain.usecase.GetCommentsUseCase
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
@@ -35,4 +36,7 @@ val appModule = module {
     factory { GetUserActivities(repository = get()) }
     factory { GetFriendsActivities(repository = get()) }
     factory { SubmitReview(repository = get()) }
+
+    // Comments use cases
+    factory { GetCommentsUseCase(commentsRepository = get()) }
 }
