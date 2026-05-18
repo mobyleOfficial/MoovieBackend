@@ -8,24 +8,25 @@ import org.mobyle.domain.usecase.movies.*
 import org.mobyle.domain.usecase.profile.GetPublicProfile
 import org.mobyle.domain.usecase.profile.GetUserProfile
 import org.mobyle.domain.usecase.profile.UpdateUserProfile
+import org.mobyle.domain.repository.MoviesRepository
 import org.koin.dsl.module
 
 val appModule = module {
     // Movies use cases
-    factory { GetTrendingMovies(repository = get()) }
-    factory { GetMovieDetail(repository = get()) }
-    factory { SearchMovies(repository = get()) }
-    factory { DiscoverMovies(repository = get()) }
-    factory { GetGenres(repository = get()) }
-    factory { GetCountries(repository = get()) }
-    factory { GetLanguages(repository = get()) }
-    factory { GetMovieReviews(repository = get()) }
-    factory { GetUserFavoriteMovies(repository = get()) }
-    factory { GetUserWatchList(repository = get()) }
-    factory { GetMovieLists(repository = get()) }
-    factory { GetUserMovieLists(repository = get()) }
-    factory { GetMovieListDetail(repository = get()) }
-    factory { GetFeaturedLists(repository = get()) }
+    factory { GetTrendingMovies(repository = get<MoviesRepository>()) }
+    factory { GetMovieDetail(repository = get<MoviesRepository>()) }
+    factory { SearchMovies(repository = get<MoviesRepository>()) }
+    factory { DiscoverMovies(repository = get<MoviesRepository>()) }
+    factory { GetGenres(repository = get<MoviesRepository>()) }
+    factory { GetCountries(repository = get<MoviesRepository>()) }
+    factory { GetLanguages(repository = get<MoviesRepository>()) }
+    factory { GetMovieReviews(repository = get<MoviesRepository>()) }
+    factory { GetUserFavoriteMovies(repository = get<MoviesRepository>()) }
+    factory { GetUserWatchList(repository = get<MoviesRepository>()) }
+    factory { GetMovieLists(repository = get<MoviesRepository>()) }
+    factory { GetUserMovieLists(repository = get<MoviesRepository>()) }
+    factory { GetMovieListDetail(repository = get<MoviesRepository>()) }
+    factory { GetFeaturedLists(repository = get<MoviesRepository>()) }
 
     // Profile use cases
     factory { GetUserProfile(repository = get()) }

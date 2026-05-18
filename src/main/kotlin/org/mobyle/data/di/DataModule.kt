@@ -49,11 +49,19 @@ val dataModule = module {
     }
 
     single<TmdbDataSource> {
-        TmdbDataSourceImpl(httpClient = get())
+        try {
+            TmdbDataSourceImpl(httpClient = get())
+        } catch (e: Exception) {
+            throw IllegalStateException("Failed to create TmdbDataSourceImpl: ${e.message}", e)
+        }
     }
 
     single<MoviesRepository> {
-        MoviesRepositoryImpl(tmdbDataSource = get())
+        try {
+            MoviesRepositoryImpl(tmdbDataSource = get())
+        } catch (e: Exception) {
+            throw IllegalStateException("Failed to create MoviesRepositoryImpl: ${e.message}", e)
+        }
     }
 
     single<ProfileRepository> {
