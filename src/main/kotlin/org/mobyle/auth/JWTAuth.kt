@@ -3,6 +3,7 @@ package org.mobyle.auth
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
+import kotlinx.serialization.Serializable
 import org.mobyle.domain.model.JWTClaims
 import org.mobyle.domain.usecase.auth.ValidateToken
 import org.slf4j.LoggerFactory
@@ -13,13 +14,19 @@ class JWTPrincipal(val claims: JWTClaims) : java.security.Principal {
     override fun getName(): String = claims.userId
 }
 
+@Serializable
+data class ErrorResponse(
+    val error: String,
+    val message: String
+)
+
 suspend fun ApplicationCall.authenticateJWT(validateToken: ValidateToken): JWTPrincipal? {
     return try {
         val authHeader = request.headers["Authorization"] ?: run {
             log.debug("Missing Authorization header")
             respond(
                 HttpStatusCode.Unauthorized,
-                mapOf("error" to "missing_token", "message" to "Authorization header missing")
+                ErrorResponse("missing_token", "Authorization header missing")
             )
             return null
         }
@@ -28,7 +35,7 @@ suspend fun ApplicationCall.authenticateJWT(validateToken: ValidateToken): JWTPr
             log.debug("Invalid Authorization header format")
             respond(
                 HttpStatusCode.Unauthorized,
-                mapOf("error" to "invalid_token_format", "message" to "Authorization must be Bearer token")
+                ErrorResponse("invalid_token_format", "Authorization must be Bearer token")
             )
             return null
         }
@@ -41,7 +48,7 @@ suspend fun ApplicationCall.authenticateJWT(validateToken: ValidateToken): JWTPr
             log.debug("JWT validation failed: $error")
             respond(
                 HttpStatusCode.Unauthorized,
-                mapOf("error" to "invalid_token", "message" to error)
+                ErrorResponse("invalid_token", error)
             )
             return null
         }
@@ -51,7 +58,7 @@ suspend fun ApplicationCall.authenticateJWT(validateToken: ValidateToken): JWTPr
         log.error("JWT authentication error: ${e.message}")
         respond(
             HttpStatusCode.Unauthorized,
-            mapOf("error" to "authentication_error", "message" to "Invalid token")
+            ErrorResponse("authentication_error", "Invalid token")
         )
         null
     }

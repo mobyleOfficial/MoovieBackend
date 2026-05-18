@@ -6,22 +6,26 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.put
+import org.mobyle.auth.authenticateJWT
 import org.mobyle.di.injection
 import org.mobyle.domain.model.UserProfile
 import org.mobyle.domain.usecase.profile.GetPublicProfile
 import org.mobyle.domain.usecase.profile.GetUserProfile
 import org.mobyle.domain.usecase.profile.UpdateUserProfile
+import org.mobyle.domain.usecase.auth.ValidateToken
 
 fun Route.getProfileRouting() {
     val getUserProfile by injection<GetUserProfile>()
     val updateUserProfile by injection<UpdateUserProfile>()
     val getPublicProfile by injection<GetPublicProfile>()
+    val validateToken by injection<ValidateToken>()
 
     get("/profile") {
         call.respond(getUserProfile())
     }
 
     put("/profile") {
+        val principal = call.authenticateJWT(validateToken) ?: return@put
         val profile = call.receive<UserProfile>()
         updateUserProfile(profile)
         call.respond(HttpStatusCode.OK)

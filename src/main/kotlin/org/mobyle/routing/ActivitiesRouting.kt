@@ -6,16 +6,19 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import org.mobyle.auth.authenticateJWT
 import org.mobyle.di.injection
 import org.mobyle.domain.model.MovieReviewDraft
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
+import org.mobyle.domain.usecase.auth.ValidateToken
 
 fun Route.getActivitiesRouting() {
     val getUserActivities by injection<GetUserActivities>()
     val getFriendsActivities by injection<GetFriendsActivities>()
     val submitReview by injection<SubmitReview>()
+    val validateToken by injection<ValidateToken>()
 
     get("/activities/{userId}") {
         val userId = call.parameters["userId"]
@@ -32,6 +35,7 @@ fun Route.getActivitiesRouting() {
     }
 
     post("/reviews") {
+        val principal = call.authenticateJWT(validateToken) ?: return@post
         val draft = call.receive<MovieReviewDraft>()
         submitReview(draft)
         call.respond(HttpStatusCode.Created)
