@@ -1,6 +1,6 @@
 package org.mobyle.data.repository
 
-import org.mobyle.data.remote.CommentsDataSource
+import org.mobyle.data.remote.comments.CommentsDataSource
 import org.mobyle.domain.model.CommentListing
 import org.mobyle.domain.repository.CommentsRepository
 

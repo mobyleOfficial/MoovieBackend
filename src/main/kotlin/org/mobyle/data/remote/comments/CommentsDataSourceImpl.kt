@@ -1,4 +1,4 @@
-package org.mobyle.data.remote
+package org.mobyle.data.remote.comments
 
 import org.mobyle.domain.model.Comment
 import org.mobyle.domain.model.CommentListing

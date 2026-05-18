@@ -8,10 +8,10 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
-import org.mobyle.data.remote.CommentsDataSource
-import org.mobyle.data.remote.CommentsDataSourceImpl
-import org.mobyle.data.remote.TmdbDataSource
-import org.mobyle.data.remote.TmdbDataSourceImpl
+import org.mobyle.data.remote.comments.CommentsDataSource
+import org.mobyle.data.remote.comments.CommentsDataSourceImpl
+import org.mobyle.data.remote.tmdb.TmdbDataSource
+import org.mobyle.data.remote.tmdb.TmdbDataSourceImpl
 import org.mobyle.data.repository.CommentsRepositoryImpl
 import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
