@@ -1,7 +1,7 @@
 package org.mobyle.data.repository
 
-import org.mobyle.data.remote.TmdbDataSource
-import org.mobyle.data.remote.toDomain
+import org.mobyle.data.remote.tmdb.TmdbDataSource
+import org.mobyle.data.remote.tmdb.toDomain
 import org.mobyle.domain.model.*
 import org.mobyle.domain.repository.MoviesRepository
 import org.mobyle.model.MovieListing

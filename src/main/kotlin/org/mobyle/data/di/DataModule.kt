@@ -8,11 +8,15 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
-import org.mobyle.data.remote.TmdbDataSource
-import org.mobyle.data.remote.TmdbDataSourceImpl
+import org.mobyle.data.remote.comments.CommentsDataSource
+import org.mobyle.data.remote.comments.CommentsDataSourceImpl
+import org.mobyle.data.remote.tmdb.TmdbDataSource
+import org.mobyle.data.remote.tmdb.TmdbDataSourceImpl
+import org.mobyle.data.repository.CommentsRepositoryImpl
 import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
 import org.mobyle.data.repository.UserActivitiesRepositoryImpl
+import org.mobyle.domain.repository.CommentsRepository
 import org.mobyle.domain.repository.MoviesRepository
 import org.mobyle.domain.repository.ProfileRepository
 import org.mobyle.domain.repository.UserActivitiesRepository
@@ -45,11 +49,19 @@ val dataModule = module {
     }
 
     single<TmdbDataSource> {
-        TmdbDataSourceImpl(httpClient = get())
+        try {
+            TmdbDataSourceImpl(httpClient = get())
+        } catch (e: Exception) {
+            throw IllegalStateException("Failed to create TmdbDataSourceImpl: ${e.message}", e)
+        }
     }
 
     single<MoviesRepository> {
-        MoviesRepositoryImpl(tmdbDataSource = get())
+        try {
+            MoviesRepositoryImpl(tmdbDataSource = get())
+        } catch (e: Exception) {
+            throw IllegalStateException("Failed to create MoviesRepositoryImpl: ${e.message}", e)
+        }
     }
 
     single<ProfileRepository> {
@@ -58,5 +70,13 @@ val dataModule = module {
 
     single<UserActivitiesRepository> {
         UserActivitiesRepositoryImpl()
+    }
+
+    single<CommentsDataSource> {
+        CommentsDataSourceImpl()
+    }
+
+    single<CommentsRepository> {
+        CommentsRepositoryImpl(commentsDataSource = get())
     }
 }

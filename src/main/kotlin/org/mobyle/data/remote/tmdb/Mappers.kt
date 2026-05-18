@@ -1,6 +1,6 @@
-package org.mobyle.data.remote
+package org.mobyle.data.remote.tmdb
 
-import org.mobyle.data.remote.model.*
+import org.mobyle.data.remote.tmdb.model.*
 import org.mobyle.domain.model.*
 import org.mobyle.model.MovieListing
 import org.mobyle.model.MovieReviewListing

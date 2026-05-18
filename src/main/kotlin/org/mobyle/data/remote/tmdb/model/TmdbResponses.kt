@@ -1,4 +1,4 @@
-package org.mobyle.data.remote.model
+package org.mobyle.data.remote.tmdb.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

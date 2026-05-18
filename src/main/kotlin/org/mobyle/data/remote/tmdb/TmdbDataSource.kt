@@ -1,6 +1,6 @@
-package org.mobyle.data.remote
+package org.mobyle.data.remote.tmdb
 
-import org.mobyle.data.remote.model.*
+import org.mobyle.data.remote.tmdb.model.*
 
 interface TmdbDataSource {
     suspend fun getTrendingMovies(page: Int): TmdbMovieListResponse

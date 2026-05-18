@@ -1,9 +1,9 @@
-package org.mobyle.data.remote
+package org.mobyle.data.remote.tmdb
 
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import org.mobyle.data.remote.model.*
+import org.mobyle.data.remote.tmdb.model.*
 
 class TmdbDataSourceImpl(
     private val httpClient: HttpClient
