@@ -33,6 +33,8 @@ dependencies {
     implementation("io.insert-koin:koin-logger-slf4j:3.5.6")
 
     testImplementation("io.ktor:ktor-server-tests:2.3.0")
+    testImplementation(kotlin("test"))
+    testImplementation("junit:junit:4.13.2")
 }
 
 configurations.all {

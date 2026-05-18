@@ -4,10 +4,14 @@ import org.mobyle.domain.usecase.GetCommentsUseCase
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
+import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
+import org.mobyle.domain.usecase.auth.RefreshToken
+import org.mobyle.domain.usecase.auth.ValidateToken
 import org.mobyle.domain.usecase.movies.*
 import org.mobyle.domain.usecase.profile.GetPublicProfile
 import org.mobyle.domain.usecase.profile.GetUserProfile
 import org.mobyle.domain.usecase.profile.UpdateUserProfile
+import org.mobyle.domain.repository.AuthRepository
 import org.mobyle.domain.repository.MoviesRepository
 import org.koin.dsl.module
 
@@ -40,4 +44,9 @@ val appModule = module {
 
     // Comments use cases
     factory { GetCommentsUseCase(commentsRepository = get()) }
+
+    // Auth use cases
+    factory { ProcessOAuthCallback(authRepository = get<AuthRepository>()) }
+    factory { ValidateToken(authRepository = get<AuthRepository>()) }
+    factory { RefreshToken(authRepository = get<AuthRepository>()) }
 }

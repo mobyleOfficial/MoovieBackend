@@ -1,0 +1,19 @@
+package org.mobyle.domain.repository
+
+import org.mobyle.domain.model.AuthToken
+import org.mobyle.domain.model.JWTClaims
+import org.mobyle.domain.model.OAuthCallbackRequest
+import org.mobyle.domain.model.User
+
+interface AuthRepository {
+    suspend fun processOAuthCallback(request: OAuthCallbackRequest): Result<AuthToken>
+    suspend fun validateToken(token: String): Result<JWTClaims>
+    suspend fun refreshToken(refreshToken: String): Result<AuthToken>
+    suspend fun getUserById(userId: String): Result<User>
+}
+
+interface UserRepository {
+    suspend fun createOrUpdateUser(user: User): Result<User>
+    suspend fun getUserByEmail(email: String): Result<User?>
+    suspend fun getUserById(userId: String): Result<User?>
+}

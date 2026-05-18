@@ -1,0 +1,27 @@
+package org.mobyle.domain.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class AuthToken(
+    val accessToken: String,
+    val tokenType: String = "Bearer",
+    val expiresIn: Long, // seconds
+    val refreshToken: String? = null,
+    val user: User
+)
+
+data class JWTClaims(
+    val userId: String,
+    val email: String,
+    val username: String,
+    val avatar: String?,
+    val iat: Long, // issued at (Unix timestamp)
+    val exp: Long  // expiration (Unix timestamp)
+)
+
+data class OAuthCallbackRequest(
+    val code: String,
+    val state: String,
+    val codeVerifier: String? = null
+)

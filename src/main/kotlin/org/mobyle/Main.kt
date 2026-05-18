@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import org.mobyle.data.di.dataModule
 import org.mobyle.di.appModule
 import org.mobyle.routing.getActivitiesRouting
+import org.mobyle.routing.getAuthRouting
 import org.mobyle.routing.getCommentsRouting
 import org.mobyle.routing.getMoviesRouting
 import org.mobyle.routing.getProfileRouting
@@ -94,6 +95,7 @@ fun Application.configureRouting() {
     }
 
     routing {
+        getAuthRouting()
         getMoviesRouting()
         getProfileRouting()
         getActivitiesRouting()
