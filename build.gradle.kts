@@ -1,55 +1,34 @@
 plugins {
-    kotlin("jvm") version "2.0.20"
-    kotlin("plugin.serialization") version "2.0.20"
-    id("io.ktor.plugin") version "3.1.1"
+	java
+	id("org.springframework.boot") version "4.0.6"
+	id("io.spring.dependency-management") version "1.1.7"
 }
 
-group = "org.mobyle"
-version = "1.0-SNAPSHOT"
+group = "com.moovie"
+version = "0.0.1-SNAPSHOT"
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 dependencies {
-    implementation("io.ktor:ktor-server-core:2.3.0")
-    implementation("io.ktor:ktor-server-netty:2.3.0")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.0")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.0")
-    implementation("io.ktor:ktor-server-status-pages:2.3.0")
-    implementation("io.ktor:ktor-server-cors:2.3.0")
-    implementation("io.ktor:ktor-server-auth:2.3.0")
-    implementation("ch.qos.logback:logback-classic:1.2.10")
-
-    // Ktor Client (for TMDB API calls)
-    implementation("io.ktor:ktor-client-core:2.3.0")
-    implementation("io.ktor:ktor-client-cio:2.3.0")
-    implementation("io.ktor:ktor-client-content-negotiation:2.3.0")
-    implementation("io.ktor:ktor-client-logging:2.3.0")
-
-    // Koin for Dependency Injection
-    implementation("io.insert-koin:koin-core:3.5.6")
-    implementation("io.insert-koin:koin-ktor:3.5.6")
-    implementation("io.insert-koin:koin-logger-slf4j:3.5.6")
-
-    testImplementation("io.ktor:ktor-server-tests:2.3.0")
+	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("com.fasterxml.jackson.core:jackson-databind")
+compileOnly("org.projectlombok:lombok")
+	developmentOnly("org.springframework.boot:spring-boot-devtools")
+	annotationProcessor("org.projectlombok:lombok")
+	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testCompileOnly("org.projectlombok:lombok")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testAnnotationProcessor("org.projectlombok:lombok")
 }
 
-configurations.all {
-    resolutionStrategy {
-        force("io.netty:netty-codec-http:4.1.129.Final")
-        force("io.netty:netty-handler:4.1.129.Final")
-        force("io.netty:netty-codec:4.1.129.Final")
-        force("io.netty:netty-transport:4.1.129.Final")
-        force("io.netty:netty-buffer:4.1.129.Final")
-        force("io.netty:netty-common:4.1.129.Final")
-    }
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
-application {
-    mainClass.set("org.mobyle.MainKt")
+tasks.withType<Test> {
+	useJUnitPlatform()
 }
