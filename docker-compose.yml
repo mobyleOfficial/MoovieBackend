@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:16
+    container_name: moovie-db
+    env_file: .env
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - moovie-pgdata:/var/lib/postgresql/data
+
+volumes:
+  moovie-pgdata:

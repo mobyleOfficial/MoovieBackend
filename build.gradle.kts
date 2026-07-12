@@ -32,6 +32,14 @@ dependencies {
     implementation("io.insert-koin:koin-ktor:3.5.6")
     implementation("io.insert-koin:koin-logger-slf4j:3.5.6")
 
+    // Database - Exposed ORM + PostgreSQL
+    implementation("org.jetbrains.exposed:exposed-core:0.56.0")
+    implementation("org.jetbrains.exposed:exposed-dao:0.56.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.56.0")
+    implementation("org.jetbrains.exposed:exposed-kotlin-datetime:0.56.0")
+    implementation("org.postgresql:postgresql:42.7.4")
+    implementation("com.zaxxer:HikariCP:6.2.1")
+
     testImplementation("io.ktor:ktor-server-tests:2.3.0")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
