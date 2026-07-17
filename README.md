@@ -9,31 +9,69 @@ Backend API for the Moovie app, powered by [TMDB](https://www.themoviedb.org/). 
 - **Koin** 3.5.6 (Dependency Injection)
 - **Kotlinx Serialization** (JSON)
 - **Netty** (HTTP engine)
+- **Exposed** (ORM)
+- **PostgreSQL** 16 + **HikariCP** (connection pool)
 - **Java** 17+
 
 ## Prerequisites
 
 - JDK 17 or higher
+- [Docker](https://www.docker.com/products/docker-desktop/) (for the database)
 - A [TMDB API](https://developer.themoviedb.org/) Bearer token
 
 ## Environment Variables
 
-| Variable       | Required | Default | Description                                      |
-|----------------|----------|---------|--------------------------------------------------|
-| `TMDB_API_KEY` | Yes      | —       | TMDB API Bearer token                            |
-| `PORT`         | No       | `8080`  | Server port                                      |
-| `CORS_ORIGINS` | No       | —       | Comma-separated list of allowed origins for CORS |
+| Variable            | Required | Default                  | Description                                      |
+|---------------------|----------|--------------------------|--------------------------------------------------|
+| `TMDB_API_KEY`      | Yes      | —                        | TMDB API Bearer token                            |
+| `DATABASE_URL`      | Yes      | —                        | PostgreSQL connection string                     |
+| `PORT`              | No       | `8080`                   | Server port                                      |
+| `CORS_ORIGINS`      | No       | —                        | Comma-separated list of allowed origins for CORS |
+| `POSTGRES_USER`     | No       | `moovie`                 | Docker Compose: database user                    |
+| `POSTGRES_PASSWORD` | No       | —                        | Docker Compose: database password                |
+| `POSTGRES_DB`       | No       | `moovie`                 | Docker Compose: database name                    |
+| `DB_PORT`           | No       | `5433`                   | Docker Compose: host port for PostgreSQL         |
 
 ## Getting Started
 
-### Run locally
+### 1. Configure environment
 
 ```bash
-export TMDB_API_KEY="your_tmdb_bearer_token"
+cp .env.example .env
+```
+
+Edit `.env` and fill in your values (TMDB token, database password, etc.).
+
+### 2. Start the database
+
+```bash
+docker compose up -d
+```
+
+This starts a PostgreSQL 16 container on port 5433 (configurable via `DB_PORT`).
+
+Verify it's running:
+
+```bash
+docker exec -it moovie-db psql -U moovie -d moovie -c "SELECT 1"
+```
+
+### 3. Run the backend
+
+```bash
 ./gradlew run
 ```
 
-The server starts at `http://localhost:8080`.
+The server starts at `http://localhost:8080`. Database tables are created automatically on first run.
+
+### Useful Docker commands
+
+| Action         | Command                  |
+|----------------|--------------------------|
+| Start database | `docker compose up -d`   |
+| Stop database  | `docker compose down`    |
+| View logs      | `docker compose logs db` |
+| Reset database | `docker compose down -v` (deletes all data) |
 
 ### Build fat JAR
 
@@ -106,6 +144,10 @@ src/main/kotlin/org/mobyle/
 │   └── usecase/                    # Use cases (movies, profile, activities)
 ├── data/
 │   ├── di/                         # Data layer DI
+│   ├── local/
+│   │   ├── database/              # Exposed tables & DB config
+│   │   ├── oauth/                 # OAuth state storage
+│   │   └── user/                  # Local user storage
 │   ├── remote/                     # TMDB API client & mappers
 │   └── repository/                 # Repository implementations
 └── model/                          # Response/listing models

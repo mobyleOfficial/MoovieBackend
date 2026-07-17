@@ -11,6 +11,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
+import org.mobyle.data.local.database.DatabaseConfig
 import org.mobyle.data.di.dataModule
 import org.mobyle.di.appModule
 import org.mobyle.routing.getActivitiesRouting
@@ -27,6 +28,8 @@ private val log = LoggerFactory.getLogger("Application")
 fun main() {
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     logTmdbEnv()
+    DatabaseConfig.init()
+
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
         configureCors()
         configureStatusPages()
