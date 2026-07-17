@@ -40,6 +40,9 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.4")
     implementation("com.zaxxer:HikariCP:6.2.1")
 
+    // RSS/XML parsing
+    implementation("org.jsoup:jsoup:1.18.1")
+
     testImplementation("io.ktor:ktor-server-tests:2.3.0")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")

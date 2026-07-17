@@ -13,7 +13,7 @@ class ArticlesRepositoryImpl(
         return articlesDataSource.getArticles(page, pageSize)
     }
 
-    override suspend fun getArticleById(articleId: String): Article? {
+    override suspend fun getArticleById(articleId: Long): Article? {
         return articlesDataSource.getArticleById(articleId)
     }
 }

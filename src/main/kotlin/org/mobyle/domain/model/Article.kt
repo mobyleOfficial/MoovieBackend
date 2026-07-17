@@ -4,17 +4,13 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Article(
-    val id: String,
+    val id: Long,
     val title: String,
     val summary: String,
-    val content: String,
-    val authorName: String,
-    val authorAvatar: String,
-    val imageUrl: String,
-    val category: String,
-    val tags: List<String>,
-    val publishedAt: String,
-    val readTimeMinutes: Int
+    val imageUrl: String?,
+    val sourceUrl: String,
+    val source: String,
+    val publishedAt: String
 )
 
 @Serializable

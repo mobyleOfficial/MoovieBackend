@@ -5,5 +5,6 @@ import org.mobyle.domain.model.ArticleListing
 
 interface ArticlesDataSource {
     suspend fun getArticles(page: Int, pageSize: Int): ArticleListing
-    suspend fun getArticleById(articleId: String): Article?
+    suspend fun getArticleById(articleId: Long): Article?
+    suspend fun scrapeAndStore()
 }

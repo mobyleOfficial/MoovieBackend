@@ -21,9 +21,13 @@ fun Route.getArticlesRouting() {
     }
 
     get("/articles/{articleId}") {
-        val articleId = call.parameters["articleId"] ?: ""
-        val article = getArticleDetail(articleId)
+        val articleId = call.parameters["articleId"]?.toLongOrNull()
+        if (articleId == null) {
+            call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid article ID"))
+            return@get
+        }
 
+        val article = getArticleDetail(articleId)
         if (article != null) {
             call.respond(article)
         } else {

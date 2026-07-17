@@ -65,6 +65,16 @@ object TagsTable : LongIdTable("tags") {
     }
 }
 
+object ArticlesTable : LongIdTable("articles") {
+    val sourceUrl = varchar("source_url", 1000).uniqueIndex()
+    val title = varchar("title", 500)
+    val summary = text("summary")
+    val imageUrl = varchar("image_url", 1000).nullable()
+    val sourceName = varchar("source", 100)
+    val publishedAt = timestamp("published_at")
+    val scrapedAt = timestamp("scraped_at")
+}
+
 object MovieTagsTable : LongIdTable("movie_tags") {
     val tagId = reference("tag_id", TagsTable)
     val userMovieId = reference("user_movie_id", UserMoviesTable)

@@ -10,8 +10,11 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import org.mobyle.data.local.database.DatabaseConfig
+import org.mobyle.data.remote.articles.ArticlesDataSource
+import org.koin.ktor.ext.inject
 import org.mobyle.data.di.dataModule
 import org.mobyle.di.appModule
 import org.mobyle.routing.getActivitiesRouting
@@ -36,6 +39,7 @@ fun main() {
         configureStatusPages()
         configureKoin()
         configureRouting()
+        scheduleArticleScraping()
     }.start(wait = true)
 }
 
@@ -86,6 +90,24 @@ fun Application.configureKoin() {
     install(Koin) {
         slf4jLogger()
         modules(dataModule, appModule)
+    }
+}
+
+private fun Application.scheduleArticleScraping() {
+    val articlesDataSource by inject<ArticlesDataSource>()
+    val intervalMs = System.getenv("SCRAPE_INTERVAL_HOURS")?.toLongOrNull()?.times(3_600_000) ?: 10_800_000L // default 3h
+
+    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        while (isActive) {
+            try {
+                log.info("Starting scheduled article scraping...")
+                articlesDataSource.scrapeAndStore()
+                log.info("Article scraping completed successfully")
+            } catch (e: Exception) {
+                log.error("Article scraping failed", e)
+            }
+            delay(intervalMs)
+        }
     }
 }
 

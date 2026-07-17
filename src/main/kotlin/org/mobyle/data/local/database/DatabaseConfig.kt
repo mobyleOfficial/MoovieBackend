@@ -37,7 +37,8 @@ object DatabaseConfig {
                 UserListsTable,
                 UserListItemsTable,
                 TagsTable,
-                MovieTagsTable
+                MovieTagsTable,
+                ArticlesTable
             )
         }
     }

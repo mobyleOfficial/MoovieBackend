@@ -5,5 +5,5 @@ import org.mobyle.domain.model.ArticleListing
 
 interface ArticlesRepository {
     suspend fun getArticles(page: Int, pageSize: Int = 10): ArticleListing
-    suspend fun getArticleById(articleId: String): Article?
+    suspend fun getArticleById(articleId: Long): Article?
 }

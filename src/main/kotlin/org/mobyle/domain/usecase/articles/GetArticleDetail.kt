@@ -6,8 +6,8 @@ import org.mobyle.domain.repository.ArticlesRepository
 class GetArticleDetail(
     private val repository: ArticlesRepository
 ) {
-    suspend operator fun invoke(articleId: String): Article? {
-        require(articleId.isNotBlank()) { "Article ID cannot be blank" }
+    suspend operator fun invoke(articleId: Long): Article? {
+        require(articleId > 0) { "Article ID must be greater than 0" }
 
         return repository.getArticleById(articleId)
     }
