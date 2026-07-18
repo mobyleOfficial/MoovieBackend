@@ -2,6 +2,8 @@ package org.mobyle.di
 
 import org.mobyle.domain.usecase.GetCommentsUseCase
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
+import org.mobyle.domain.usecase.articles.GetArticleDetail
+import org.mobyle.domain.usecase.articles.GetArticles
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
@@ -44,6 +46,10 @@ val appModule = module {
 
     // Comments use cases
     factory { GetCommentsUseCase(commentsRepository = get()) }
+
+    // Articles use cases
+    factory { GetArticles(repository = get()) }
+    factory { GetArticleDetail(repository = get()) }
 
     // Auth use cases
     factory { ProcessOAuthCallback(authRepository = get<AuthRepository>()) }
