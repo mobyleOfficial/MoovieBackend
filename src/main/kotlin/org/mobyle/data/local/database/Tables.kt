@@ -69,6 +69,7 @@ object ArticlesTable : LongIdTable("articles") {
     val sourceUrl = varchar("source_url", 1000).uniqueIndex()
     val title = varchar("title", 500)
     val summary = text("summary")
+    val content = text("content")
     val imageUrl = varchar("image_url", 1000).nullable()
     val sourceName = varchar("source", 100)
     val publishedAt = timestamp("published_at")
