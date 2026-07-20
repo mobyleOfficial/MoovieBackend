@@ -16,6 +16,15 @@ data class FilmowMovie(
 )
 
 @Serializable
+data class FilmowList(
+    val filmowId: String,
+    val title: String,
+    val filmowUrl: String,
+    val coverUrl: String? = null,
+    val itemCount: Int? = null
+)
+
+@Serializable
 data class FilmowProfile(
     val username: String,
     val displayName: String,
@@ -24,6 +33,7 @@ data class FilmowProfile(
     val favorites: List<FilmowMovie> = emptyList(),
     val watchedSeries: List<FilmowMovie> = emptyList(),
     val watchlistSeries: List<FilmowMovie> = emptyList(),
+    val lists: List<FilmowList> = emptyList(),
     val errors: List<String> = emptyList()
 )
 

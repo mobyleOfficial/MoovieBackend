@@ -10,6 +10,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.mobyle.domain.model.FilmowList
 import org.mobyle.domain.model.FilmowMovie
 import org.mobyle.domain.model.FilmowProfile
 import org.slf4j.LoggerFactory
@@ -85,6 +86,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
             favorites = parseMovieList(obj["favorites"]),
             watchedSeries = parseMovieList(obj["watchedSeries"]),
             watchlistSeries = parseMovieList(obj["watchlistSeries"]),
+            lists = parseListList(obj["lists"]),
             errors = obj["errors"]?.jsonArray
                 ?.map { it.jsonPrimitive.content }
                 ?: emptyList()
@@ -110,6 +112,26 @@ class FilmowDataSourceImpl : FilmowDataSource {
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")
+                null
+            }
+        }
+    }
+
+    private fun parseListList(element: kotlinx.serialization.json.JsonElement?): List<FilmowList> {
+        if (element == null || element !is JsonArray) return emptyList()
+
+        return element.mapNotNull { item ->
+            try {
+                val list = item.jsonObject
+                FilmowList(
+                    filmowId = list["filmowId"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                    title = list["title"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                    filmowUrl = list["filmowUrl"]?.jsonPrimitive?.content ?: "",
+                    coverUrl = list["coverUrl"]?.jsonPrimitive?.content,
+                    itemCount = list["itemCount"]?.jsonPrimitive?.intOrNull
+                )
+            } catch (e: Exception) {
+                log.warn("Failed to parse list item: ${e.message}")
                 null
             }
         }

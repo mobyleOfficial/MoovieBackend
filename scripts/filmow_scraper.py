@@ -268,6 +268,55 @@ def scrape_section(session, username, content_type, status_key, errors):
     return movies
 
 
+def scrape_lists(session, username, errors):
+    """Scrape user lists from /listas/usuario/{username}/"""
+    url = f"{BASE_URL}/listas/usuario/{username}/"
+    lists = []
+
+    try:
+        soup = get_page(session, url)
+    except Exception as e:
+        errors.append(f"Lists page failed: {e}")
+        return lists
+
+    for card in soup.select("div.list-card"):
+        link = card.select_one("a.list-card__covers[href]") or card.select_one("a[href*='/listas/']")
+        if not link:
+            continue
+
+        href = link.get("href", "")
+        # Extract list ID from URL like /listas/teste-2-l212586/
+        id_match = re.search(r"-l(\d+)/?$", href)
+        filmow_id = id_match.group(1) if id_match else ""
+
+        title_el = card.select_one("a.list-card__title")
+        title = title_el.get_text(strip=True) if title_el else ""
+
+        cover_el = card.select_one("img.list-card__cover")
+        cover_url = cover_el.get("src") if cover_el else None
+
+        # Item count is usually in a div inside the card
+        count = None
+        count_el = card.select_one(".list-card__count, .list-card__stats")
+        if count_el:
+            count_match = re.search(r"(\d+)", count_el.get_text())
+            if count_match:
+                count = int(count_match.group(1))
+
+        if title:
+            lists.append({
+                "filmowId": filmow_id,
+                "title": title,
+                "filmowUrl": f"{BASE_URL}{href}",
+                "coverUrl": cover_url,
+                "itemCount": count,
+            })
+            log(f"  list: {title} (id={filmow_id})")
+
+    log(f"Lists: found {len(lists)}")
+    return lists
+
+
 def scrape_profile(username, cookies_str=""):
     session = create_session(cookies_str)
     errors = []
@@ -279,6 +328,7 @@ def scrape_profile(username, cookies_str=""):
     favorites = scrape_section(session, username, "filmes", "favoritos", errors)
     watched_series = scrape_section(session, username, "series", "ja-vi", errors)
     watchlist_series = scrape_section(session, username, "series", "quero-ver", errors)
+    user_lists = scrape_lists(session, username, errors)
 
     return {
         "username": username,
@@ -288,6 +338,7 @@ def scrape_profile(username, cookies_str=""):
         "favorites": favorites,
         "watchedSeries": watched_series,
         "watchlistSeries": watchlist_series,
+        "lists": user_lists,
         "errors": errors,
     }
 
