@@ -16,6 +16,8 @@ import org.mobyle.data.remote.articles.ArticlesDataSource
 import org.mobyle.data.remote.articles.ArticlesDataSourceImpl
 import org.mobyle.data.remote.comments.CommentsDataSource
 import org.mobyle.data.remote.comments.CommentsDataSourceImpl
+import org.mobyle.data.remote.filmow.FilmowDataSource
+import org.mobyle.data.remote.filmow.FilmowDataSourceImpl
 import org.mobyle.data.remote.oauth.OAuthDataSource
 import org.mobyle.data.remote.oauth.OAuthDataSourceImpl
 import org.mobyle.data.remote.tmdb.TmdbDataSource
@@ -23,6 +25,7 @@ import org.mobyle.data.remote.tmdb.TmdbDataSourceImpl
 import org.mobyle.data.repository.AuthRepositoryImpl
 import org.mobyle.data.repository.ArticlesRepositoryImpl
 import org.mobyle.data.repository.CommentsRepositoryImpl
+import org.mobyle.data.repository.FilmowRepositoryImpl
 import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
 import org.mobyle.data.repository.UserActivitiesRepositoryImpl
@@ -31,6 +34,7 @@ import org.mobyle.data.util.JWTUtil
 import org.mobyle.domain.repository.AuthRepository
 import org.mobyle.domain.repository.ArticlesRepository
 import org.mobyle.domain.repository.CommentsRepository
+import org.mobyle.domain.repository.FilmowRepository
 import org.mobyle.domain.repository.MoviesRepository
 import org.mobyle.domain.repository.ProfileRepository
 import org.mobyle.domain.repository.UserActivitiesRepository
@@ -101,6 +105,14 @@ val dataModule = module {
 
     single<ArticlesRepository> {
         ArticlesRepositoryImpl(articlesDataSource = get())
+    }
+
+    single<FilmowDataSource> {
+        FilmowDataSourceImpl()
+    }
+
+    single<FilmowRepository> {
+        FilmowRepositoryImpl(filmowDataSource = get())
     }
 
     // Auth-related datasources and repositories
