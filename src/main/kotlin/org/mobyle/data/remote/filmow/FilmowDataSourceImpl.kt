@@ -1,5 +1,9 @@
 package org.mobyle.data.remote.filmow
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -11,13 +15,15 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.mobyle.domain.model.FilmowList
-import org.mobyle.domain.model.FilmowMovie
 import org.mobyle.domain.model.FilmowProfile
+import org.mobyle.domain.model.Movie
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-class FilmowDataSourceImpl : FilmowDataSource {
+class FilmowDataSourceImpl(
+    private val tmdbHttpClient: HttpClient
+) : FilmowDataSource {
 
     private val log = LoggerFactory.getLogger(FilmowDataSourceImpl::class.java)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -70,7 +76,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
         return parseResult(stdout)
     }
 
-    private fun parseResult(jsonStr: String): FilmowProfile {
+    private suspend fun parseResult(jsonStr: String): FilmowProfile {
         val obj = json.parseToJsonElement(jsonStr).jsonObject
 
         if (obj.containsKey("error")) {
@@ -93,22 +99,28 @@ class FilmowDataSourceImpl : FilmowDataSource {
         )
     }
 
-    private fun parseMovieList(element: kotlinx.serialization.json.JsonElement?): List<FilmowMovie> {
+    private suspend fun parseMovieList(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
         if (element == null || element !is JsonArray) return emptyList()
 
         return element.mapNotNull { item ->
             try {
                 val movie = item.jsonObject
-                FilmowMovie(
-                    filmowId = movie["filmowId"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                val imdbId = movie["imdbId"]?.jsonPrimitive?.content
+                val tmdbId = if (imdbId != null) resolveTmdbId(imdbId) else null
+
+                if (tmdbId == null) {
+                    log.warn("Skipping movie without TMDB ID: ${movie["title"]?.jsonPrimitive?.content}")
+                    return@mapNotNull null
+                }
+
+                Movie(
+                    id = tmdbId,
                     title = movie["title"]?.jsonPrimitive?.content ?: return@mapNotNull null,
-                    year = movie["year"]?.jsonPrimitive?.content,
-                    filmowUrl = movie["filmowUrl"]?.jsonPrimitive?.content ?: "",
-                    posterUrl = movie["posterUrl"]?.jsonPrimitive?.content,
-                    globalRating = movie["globalRating"]?.jsonPrimitive?.doubleOrNull,
-                    userRating = movie["userRating"]?.jsonPrimitive?.intOrNull,
-                    status = movie["status"]?.jsonPrimitive?.content ?: "",
-                    director = movie["director"]?.jsonPrimitive?.content
+                    overview = movie["overview"]?.jsonPrimitive?.content ?: "",
+                    posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
+                    backdropPath = movie["backdropUrl"]?.jsonPrimitive?.content,
+                    voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                    releaseDate = movie["releaseDate"]?.jsonPrimitive?.content
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")
@@ -117,7 +129,25 @@ class FilmowDataSourceImpl : FilmowDataSource {
         }
     }
 
-    private fun parseListList(element: kotlinx.serialization.json.JsonElement?): List<FilmowList> {
+    /**
+     * Resolves IMDB ID to TMDB ID using TMDB /find/{external_id} endpoint.
+     */
+    private suspend fun resolveTmdbId(imdbId: String): Int? {
+        return try {
+            val response = tmdbHttpClient.get("find/$imdbId") {
+                parameter("external_source", "imdb_id")
+            }
+            val body = response.bodyAsText()
+            val result = json.parseToJsonElement(body).jsonObject
+            val movieResults = result["movie_results"]?.jsonArray
+            movieResults?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull
+        } catch (e: Exception) {
+            log.debug("Failed to resolve TMDB ID for $imdbId: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun parseListList(element: kotlinx.serialization.json.JsonElement?): List<FilmowList> {
         if (element == null || element !is JsonArray) return emptyList()
 
         return element.mapNotNull { item ->
@@ -126,9 +156,10 @@ class FilmowDataSourceImpl : FilmowDataSource {
                 FilmowList(
                     filmowId = list["filmowId"]?.jsonPrimitive?.content ?: return@mapNotNull null,
                     title = list["title"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                    description = list["description"]?.jsonPrimitive?.content,
                     filmowUrl = list["filmowUrl"]?.jsonPrimitive?.content ?: "",
                     coverUrl = list["coverUrl"]?.jsonPrimitive?.content,
-                    itemCount = list["itemCount"]?.jsonPrimitive?.intOrNull
+                    movies = parseMovieList(list["movies"])
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse list item: ${e.message}")

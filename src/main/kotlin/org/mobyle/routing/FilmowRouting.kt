@@ -6,7 +6,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import org.mobyle.di.injection
-import org.mobyle.domain.model.FilmowScrapeRequest
+import org.mobyle.data.remote.filmow.FilmowScrapeRequest
 import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
 
 fun Route.getFilmowRouting() {

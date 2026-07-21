@@ -3,42 +3,24 @@ package org.mobyle.domain.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class FilmowMovie(
-    val filmowId: String,
-    val title: String,
-    val year: String? = null,
-    val filmowUrl: String,
-    val posterUrl: String? = null,
-    val globalRating: Double? = null,
-    val userRating: Int? = null,
-    val status: String,
-    val director: String? = null
-)
-
-@Serializable
 data class FilmowList(
     val filmowId: String,
     val title: String,
+    val description: String? = null,
     val filmowUrl: String,
     val coverUrl: String? = null,
-    val itemCount: Int? = null
+    val movies: List<Movie> = emptyList()
 )
 
 @Serializable
 data class FilmowProfile(
     val username: String,
     val displayName: String,
-    val watched: List<FilmowMovie> = emptyList(),
-    val watchlist: List<FilmowMovie> = emptyList(),
-    val favorites: List<FilmowMovie> = emptyList(),
-    val watchedSeries: List<FilmowMovie> = emptyList(),
-    val watchlistSeries: List<FilmowMovie> = emptyList(),
+    val watched: List<Movie> = emptyList(),
+    val watchlist: List<Movie> = emptyList(),
+    val favorites: List<Movie> = emptyList(),
+    val watchedSeries: List<Movie> = emptyList(),
+    val watchlistSeries: List<Movie> = emptyList(),
     val lists: List<FilmowList> = emptyList(),
     val errors: List<String> = emptyList()
-)
-
-@Serializable
-data class FilmowScrapeRequest(
-    val cookies: String = "",
-    val username: String
 )
