@@ -1,8 +1,16 @@
 package org.mobyle.data.remote.filmow
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -11,12 +19,16 @@ import org.mobyle.domain.model.FilmowProfile
 import org.mobyle.domain.model.Movie
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-class FilmowDataSourceImpl : FilmowDataSource {
+class FilmowDataSourceImpl(
+    private val tmdbHttpClient: HttpClient
+) : FilmowDataSource {
 
     private val log = LoggerFactory.getLogger(FilmowDataSourceImpl::class.java)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val tmdbIdCache = ConcurrentHashMap<String, Int?>()
 
     companion object {
         private const val SCRIPT_PATH = "scripts/filmow_scraper.py"
@@ -66,7 +78,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
         return parseResult(stdout)
     }
 
-    private fun parseResult(jsonStr: String): FilmowProfile {
+    private suspend fun parseResult(jsonStr: String): FilmowProfile {
         val obj = json.parseToJsonElement(jsonStr).jsonObject
 
         if (obj.containsKey("error")) {
@@ -74,21 +86,80 @@ class FilmowDataSourceImpl : FilmowDataSource {
             throw RuntimeException("Filmow scraper error: $errorMsg")
         }
 
-        return FilmowProfile(
-            username = obj["username"]?.jsonPrimitive?.content ?: "",
-            displayName = obj["displayName"]?.jsonPrimitive?.content ?: "",
-            recentlyWatched = parseMovieList(obj["recentlyWatched"]),
-            watched = parseMovieList(obj["watched"]),
-            watchlist = parseMovieList(obj["watchlist"]),
-            favorites = parseMovieList(obj["favorites"]),
-            lists = parseListList(obj["lists"]),
-            errors = obj["errors"]?.jsonArray
-                ?.map { it.jsonPrimitive.content }
-                ?: emptyList()
-        )
+        // Resolve TMDB IDs in parallel for all sections except lists
+        return coroutineScope {
+            val recentlyWatchedDeferred = async { parseMovieListWithTmdb(obj["recentlyWatched"]) }
+            val watchedDeferred = async { parseMovieListWithTmdb(obj["watched"]) }
+            val watchlistDeferred = async { parseMovieListWithTmdb(obj["watchlist"]) }
+            val favoritesDeferred = async { parseMovieListWithTmdb(obj["favorites"]) }
+
+            FilmowProfile(
+                username = obj["username"]?.jsonPrimitive?.content ?: "",
+                displayName = obj["displayName"]?.jsonPrimitive?.content ?: "",
+                recentlyWatched = recentlyWatchedDeferred.await(),
+                watched = watchedDeferred.await(),
+                watchlist = watchlistDeferred.await(),
+                favorites = favoritesDeferred.await(),
+                lists = parseListList(obj["lists"]),
+                errors = obj["errors"]?.jsonArray
+                    ?.map { it.jsonPrimitive.content }
+                    ?: emptyList()
+            )
+        }
     }
 
-    private fun parseMovieList(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
+    /**
+     * Parses movies and resolves TMDB IDs via search (title+year) in parallel.
+     * Used for watched, watchlist, favorites, recentlyWatched.
+     */
+    private suspend fun parseMovieListWithTmdb(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
+        if (element == null || element !is JsonArray) return emptyList()
+
+        data class ParsedItem(
+            val title: String,
+            val year: String?,
+            val posterPath: String?,
+            val voteAverage: Double
+        )
+
+        val parsed = element.mapNotNull { item ->
+            try {
+                val movie = item.jsonObject
+                val rawTitle = movie["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                val year = movie["year"]?.jsonPrimitive?.content
+                val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
+                ParsedItem(cleanTitle, year, movie["posterUrl"]?.jsonPrimitive?.content, movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0)
+            } catch (e: Exception) {
+                log.warn("Failed to parse movie item: ${e.message}")
+                null
+            }
+        }
+
+        return coroutineScope {
+            parsed.map { item ->
+                async {
+                    val tmdbId = searchTmdbId(item.title, item.year)
+                    if (tmdbId == null) {
+                        log.warn("Movie not found on TMDB: '${item.title}' (${item.year})")
+                        return@async null
+                    }
+                    Movie(
+                        id = tmdbId,
+                        title = item.title,
+                        overview = "",
+                        posterPath = item.posterPath,
+                        voteAverage = item.voteAverage,
+                        releaseDate = item.year?.let { "$it-01-01" }
+                    )
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
+    /**
+     * Parses movies without resolving TMDB IDs. Used for list movies.
+     */
+    private fun parseMovieListLight(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
         if (element == null || element !is JsonArray) return emptyList()
 
         return element.mapNotNull { item ->
@@ -113,6 +184,30 @@ class FilmowDataSourceImpl : FilmowDataSource {
         }
     }
 
+    /**
+     * Searches TMDB by title + year. Cached to avoid duplicate requests.
+     */
+    private suspend fun searchTmdbId(title: String, year: String?): Int? {
+        val cacheKey = "$title|$year"
+        tmdbIdCache[cacheKey]?.let { return it }
+
+        return try {
+            val response = tmdbHttpClient.get("search/movie") {
+                parameter("query", title)
+                if (year != null) parameter("year", year)
+            }
+            val body = response.bodyAsText()
+            val result = json.parseToJsonElement(body).jsonObject
+            val results = result["results"]?.jsonArray
+            val tmdbId = results?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull
+            tmdbIdCache[cacheKey] = tmdbId
+            tmdbId
+        } catch (e: Exception) {
+            log.debug("Failed to search TMDB for '$title' ($year): ${e.message}")
+            null
+        }
+    }
+
     private fun parseListList(element: kotlinx.serialization.json.JsonElement?): List<FilmowList> {
         if (element == null || element !is JsonArray) return emptyList()
 
@@ -125,7 +220,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
                     description = list["description"]?.jsonPrimitive?.content,
                     filmowUrl = list["filmowUrl"]?.jsonPrimitive?.content ?: "",
                     coverUrl = list["coverUrl"]?.jsonPrimitive?.content,
-                    movies = parseMovieList(list["movies"])
+                    movies = parseMovieListLight(list["movies"])
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse list item: ${e.message}")
@@ -141,16 +236,13 @@ class FilmowDataSourceImpl : FilmowDataSource {
         val venvFile = File(venvPath)
         if (venvFile.exists()) return venvFile.absolutePath
 
-        // Fallback to system python
         return "python"
     }
 
     private fun resolveScriptPath(): File {
-        // Try relative to working directory first
         val relative = File(SCRIPT_PATH)
         if (relative.exists()) return relative
 
-        // Try relative to the jar location
         val jarDir = File(
             FilmowDataSourceImpl::class.java.protectionDomain.codeSource.location.toURI()
         ).parentFile
