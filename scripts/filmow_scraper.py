@@ -13,13 +13,11 @@ import json
 import re
 import sys
 import time
-from urllib.parse import urljoin
-
 import cloudscraper
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://filmow.com"
-REQUEST_DELAY = 1.0
+REQUEST_DELAY = 0.5
 MAX_RETRIES = 5
 
 
@@ -63,110 +61,129 @@ def get_last_page(soup):
     return max(pages, default=1)
 
 
-def get_display_name(session, username):
+def scrape_profile_page(session, username):
+    """Scrapes the profile page and returns display name + recently watched movies."""
+    display_name = username
+    recent = []
+
     try:
         soup = get_page(session, f"{BASE_URL}/@{username}")
+
+        # Display name
         el = soup.select_one("span[itemprop=name] a") or soup.select_one("span[itemprop=name]")
         if el:
-            return el.get_text(strip=True)
+            display_name = el.get_text(strip=True)
+
+        # Recently watched from .last-seen section
+        last_seen = soup.select_one(".last-seen")
+        if last_seen:
+            items = last_seen.select(".recent-movies-list > div.movie_list_item")
+            for item in items:
+                mi = item.select_one("div.movie-item")
+                if not mi:
+                    continue
+
+                parsed = parse_movie_item_from_div(mi, "Assisti Recentemente")
+                if not parsed:
+                    continue
+
+                # Override user rating from stars above the movie-item
+                stars = item.select_one(".user-extras__item[title]")
+                if stars:
+                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", stars.get("title", ""))
+                    if rating_match:
+                        parsed["userRating"] = int(float(rating_match.group(1).replace(",", ".")))
+
+                recent.append(parsed)
+
+            log(f"Recently watched: {len(recent)} items")
+
     except Exception as e:
-        log(f"Failed to get display name: {e}")
-    return username
+        log(f"Failed to scrape profile page for @{username}: {e}")
+
+    return display_name, recent
 
 
-def get_movie_detail(session, path, rating):
-    try:
-        soup = get_page(session, urljoin(BASE_URL, path))
-        title_el = soup.select_one(".movie__title")
-        if not title_el:
-            return None
-
-        title = title_el.get_text(strip=True)
-
-        # Try to get original title
-        orig_el = soup.select_one("div.col-12.col-xl-7 > div.d-flex.gap-2 span i")
-        if orig_el:
-            title = orig_el.get_text(strip=True)
-
-        directors = [
-            a.get_text(strip=True)
-            for a in soup.select(".movie__mobile-directors a")
-        ]
-
-        year = None
-        year_el = soup.select_one(".movie__year")
-        if year_el:
-            year_match = re.search(r"\d{4}", year_el.get_text())
-            if year_match:
-                year = year_match.group()
-
-        poster_el = soup.select_one("img.movie__poster") or soup.select_one(".movie__poster img")
-        poster_url = poster_el.get("src") if poster_el else None
-
-        # Extract overview, voteAverage, releaseDate, imdbId from JSON-LD
-        overview = None
-        vote_average = 0.0
-        release_date = None
-        backdrop_url = None
-        imdb_id = None
-
-        for script in soup.select('script[type="application/ld+json"]'):
-            try:
-                data = json.loads(script.string)
-                if data.get("@type") == "Movie":
-                    if not overview and data.get("description"):
-                        overview = data["description"].strip()
-                    agg = data.get("aggregateRating")
-                    if agg:
-                        try:
-                            vote_average = float(agg.get("ratingValue", 0))
-                        except (ValueError, TypeError):
-                            pass
-                    if not backdrop_url and data.get("image"):
-                        backdrop_url = data["image"]
-                    # datePublished (real release date)
-                    if not release_date and data.get("datePublished"):
-                        release_date = data["datePublished"]
-                    # IMDB ID from sameAs
-                    same_as = data.get("sameAs") or []
-                    for link in same_as:
-                        imdb_match = re.search(r"imdb\.com/title/(tt\d+)", link)
-                        if imdb_match:
-                            imdb_id = imdb_match.group(1)
-            except (json.JSONDecodeError, AttributeError):
-                pass
-
-        # Fallback: overview from page content
-        if not overview:
-            desc_el = soup.select_one("div[itemprop=description]") or soup.select_one("p.description-text")
-            if desc_el:
-                overview = desc_el.get_text(strip=True)
-
-        # Release date fallback from year
-        if not release_date and year:
-            release_date = f"{year}-01-01"
-
-        # OG image as backdrop fallback
-        if not backdrop_url:
-            og_img = soup.select_one('meta[property="og:image"]')
-            if og_img:
-                backdrop_url = og_img.get("content")
-
-        return {
-            "title": title,
-            "overview": overview,
-            "posterUrl": poster_url,
-            "backdropUrl": backdrop_url,
-            "voteAverage": vote_average,
-            "releaseDate": release_date,
-            "imdbId": imdb_id,
-            "director": ", ".join(directors) if directors else None,
-            "year": year,
-            "userRating": rating,
-        }
-    except Exception as e:
-        log(f"Failed to get movie detail for {path}: {e}")
+def parse_movie_item_from_list(item, status):
+    """Extract movie data from a li.movie_list_item element (classic layout)."""
+    link = item.select_one("a.tip-movie[href]") or item.select_one("a[href]")
+    if not link:
         return None
+
+    img = item.select_one("img.lazyload") or item.select_one("img")
+    alt_text = img.get("alt", "") if img else ""
+    title = link.get("title", "").strip() or alt_text or link.get_text(strip=True)
+
+    # If alt has original title in parentheses like "Eternos (Eternals)", use the original
+    orig_match = re.search(r"\(([^)]+)\)$", alt_text)
+    if orig_match:
+        title = orig_match.group(1)
+
+    poster_url = None
+    if img:
+        poster_url = img.get("data-src") or img.get("data-original") or img.get("src")
+        if poster_url and "placeholder" in poster_url:
+            poster_url = None
+
+    year_match = re.search(r"\((\d{4})\)", alt_text)
+    year = year_match.group(1) if year_match else None
+
+    rating_el = item.select_one(".star-rating[title]") or item.select_one("span.star-rating-small[title]")
+    user_rating = None
+    if rating_el:
+        rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", rating_el.get("title", ""))
+        if rating_match:
+            user_rating = int(float(rating_match.group(1).replace(",", ".")))
+
+    return {
+        "title": title,
+        "year": year,
+        "posterUrl": poster_url,
+        "voteAverage": 0.0,
+        "userRating": user_rating,
+        "status": status,
+    }
+
+
+def parse_movie_item_from_div(item, status):
+    """Extract movie data from a div.movie-item element (newer layout)."""
+    a = item.select_one("a[href][data-movie-pk]")
+    if not a:
+        return None
+
+    title_el = item.select_one("h3.movie-item__title")
+    title = title_el.get_text(strip=True) if title_el else ""
+
+    poster = item.select_one("img.movie-item__poster")
+    poster_url = poster.get("src") if poster else None
+
+    gr_el = item.select_one("span.movie-item__rating")
+    vote_average = 0.0
+    if gr_el:
+        try:
+            vote_average = float(re.sub(r"[^0-9.]", "", gr_el.get_text()))
+        except ValueError:
+            pass
+
+    ur_el = item.select_one("span.movie-item__user-rating")
+    user_rating = None
+    if ur_el:
+        try:
+            user_rating = int(re.sub(r"[^0-9]", "", ur_el.get_text()))
+        except ValueError:
+            pass
+
+    year_match = re.search(r"\((\d{4})\)", title)
+    year = year_match.group(1) if year_match else None
+
+    return {
+        "title": title,
+        "year": year,
+        "posterUrl": poster_url,
+        "voteAverage": vote_average,
+        "userRating": user_rating,
+        "status": status,
+    }
 
 
 def scrape_section(session, username, content_type, status_key, errors):
@@ -216,131 +233,19 @@ def scrape_section(session, username, content_type, status_key, errors):
         items = soup.select("li.movie_list_item")
         if items:
             for item in items:
-                link = item.select_one("a.tip-movie[href]") or item.select_one("a[href]")
-                if not link:
-                    continue
-
-                pk = item.get("data-movie-pk", "")
-                href = link.get("href", "")
-
-                # Rating
-                rating_el = item.select_one(".star-rating[title]") or item.select_one("span.star-rating-small[title]")
-                user_rating = None
-                if rating_el:
-                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", rating_el.get("title", ""))
-                    if rating_match:
-                        user_rating = int(float(rating_match.group(1).replace(",", ".")))
-
-                # Get full detail from movie page
-                detail = get_movie_detail(session, href, user_rating)
-                if detail:
-                    movie = {
-                        "filmowId": pk,
-                        "title": detail["title"],
-                        "overview": detail.get("overview"),
-                        "year": detail["year"],
-                        "filmowUrl": f"{BASE_URL}{href}",
-                        "posterUrl": detail["posterUrl"],
-                        "backdropUrl": detail.get("backdropUrl"),
-                        "voteAverage": detail.get("voteAverage", 0.0),
-                        "releaseDate": detail.get("releaseDate"),
-                        "imdbId": detail.get("imdbId"),
-                        "userRating": detail["userRating"],
-                        "status": status,
-                        "director": detail["director"],
-                    }
-                    movies.append(movie)
-                    log(f"  + {detail['title']} ({detail.get('year', '?')}) imdb={detail.get('imdbId')}")
-                else:
-                    # Fallback: basic info from list
-                    alt_text = item.select_one("img")
-                    title = alt_text.get("alt", "") if alt_text else link.get_text(strip=True)
-                    movies.append({
-                        "filmowId": pk,
-                        "title": title,
-                        "overview": None,
-                        "year": None,
-                        "filmowUrl": f"{BASE_URL}{href}",
-                        "posterUrl": None,
-                        "backdropUrl": None,
-                        "voteAverage": 0.0,
-                        "releaseDate": None,
-                        "imdbId": None,
-                        "userRating": user_rating,
-                        "status": status,
-                        "director": None,
-                    })
+                parsed = parse_movie_item_from_list(item, status)
+                if parsed:
+                    movies.append(parsed)
         else:
             # Newer layout: div.movie-item
             div_items = soup.select("div.movie-item")
             for item in div_items:
-                a = item.select_one("a[href][data-movie-pk]")
-                if not a:
-                    continue
+                parsed = parse_movie_item_from_div(item, status)
+                if parsed:
+                    movies.append(parsed)
 
-                pk = a.get("data-movie-pk", "")
-                href = a.get("href", "")
-                title_el = item.select_one("h3.movie-item__title")
-                title = title_el.get_text(strip=True) if title_el else ""
-                poster = item.select_one("img.movie-item__poster")
-                poster_url = poster.get("src") if poster else None
-
-                gr_el = item.select_one("span.movie-item__rating")
-                global_rating = None
-                if gr_el:
-                    try:
-                        global_rating = float(re.sub(r"[^0-9.]", "", gr_el.get_text()))
-                    except ValueError:
-                        pass
-
-                ur_el = item.select_one("span.movie-item__user-rating")
-                user_rating = None
-                if ur_el:
-                    try:
-                        user_rating = int(re.sub(r"[^0-9]", "", ur_el.get_text()))
-                    except ValueError:
-                        pass
-
-                year_match = re.search(r"\((\d{4})\)", title)
-                year = year_match.group(1) if year_match else None
-
-                # Fetch detail page for full info
-                detail = get_movie_detail(session, href, user_rating)
-                if detail:
-                    movies.append({
-                        "filmowId": pk,
-                        "title": detail["title"],
-                        "overview": detail.get("overview"),
-                        "year": detail.get("year") or year,
-                        "filmowUrl": f"{BASE_URL}{href}",
-                        "posterUrl": detail.get("posterUrl") or poster_url,
-                        "backdropUrl": detail.get("backdropUrl"),
-                        "voteAverage": detail.get("voteAverage", 0.0),
-                        "releaseDate": detail.get("releaseDate"),
-                        "imdbId": detail.get("imdbId"),
-                        "userRating": detail.get("userRating"),
-                        "status": status,
-                        "director": detail.get("director"),
-                    })
-                    log(f"  + {detail['title']} ({detail.get('year', '?')}) imdb={detail.get('imdbId')}")
-                else:
-                    movies.append({
-                        "filmowId": pk,
-                        "title": title,
-                        "overview": None,
-                        "year": year,
-                        "filmowUrl": f"{BASE_URL}{href}",
-                        "posterUrl": poster_url,
-                        "backdropUrl": None,
-                        "voteAverage": global_rating or 0.0,
-                        "releaseDate": f"{year}-01-01" if year else None,
-                        "imdbId": None,
-                        "userRating": user_rating,
-                        "status": status,
-                        "director": None,
-                    })
-
-        log(f"  page {page_num}/{total_pages} -> {len(items) or len(soup.select('div.movie-item'))} items")
+        count = len(items) or len(soup.select("div.movie-item"))
+        log(f"  page {page_num}/{total_pages} -> {count} items")
 
     return movies
 
@@ -383,41 +288,15 @@ def scrape_list_detail(session, href, errors):
 
             item_href = a.get("href", "")
 
-            # Check if it's a movie by fetching the detail page breadcrumb
-            # We use the URL pattern as a fast heuristic first:
-            # Series URLs typically contain "-temporada-" or "-season-"
+            # Skip series
             is_series = bool(re.search(r"-(temporada|season)-|\d+a-temporada", item_href))
-
             if is_series:
                 log(f"    skipping series: {item_href}")
                 continue
 
-            pk = a.get("data-movie-pk", "")
-            title_el = item.select_one("h3.movie-item__title")
-            title = title_el.get_text(strip=True) if title_el else ""
-            poster = item.select_one("img.movie-item__poster")
-            poster_url = poster.get("src") if poster else None
-
-            gr_el = item.select_one("span.movie-item__rating")
-            global_rating = None
-            if gr_el:
-                try:
-                    global_rating = float(re.sub(r"[^0-9.]", "", gr_el.get_text()))
-                except ValueError:
-                    pass
-
-            year_match = re.search(r"\((\d{4})\)", title)
-            year = year_match.group(1) if year_match else None
-
-            movies.append({
-                "filmowId": pk,
-                "title": title,
-                "year": year,
-                "filmowUrl": f"{BASE_URL}{item_href}",
-                "posterUrl": poster_url,
-                "globalRating": global_rating,
-                "director": None,
-            })
+            parsed = parse_movie_item_from_div(item, "Lista")
+            if parsed:
+                movies.append(parsed)
 
         log(f"    page {page_num}/{total_pages} -> {len(items)} items")
 
@@ -480,23 +359,20 @@ def scrape_profile(username, cookies_str=""):
     session = create_session(cookies_str)
     errors = []
 
-    display_name = get_display_name(session, username)
+    display_name, recently_watched = scrape_profile_page(session, username)
 
     watched = scrape_section(session, username, "filmes", "ja-vi", errors)
     watchlist = scrape_section(session, username, "filmes", "quero-ver", errors)
     favorites = scrape_section(session, username, "filmes", "favoritos", errors)
-    watched_series = scrape_section(session, username, "series", "ja-vi", errors)
-    watchlist_series = scrape_section(session, username, "series", "quero-ver", errors)
     user_lists = scrape_lists(session, username, errors)
 
     return {
         "username": username,
         "displayName": display_name,
+        "recentlyWatched": recently_watched,
         "watched": watched,
         "watchlist": watchlist,
         "favorites": favorites,
-        "watchedSeries": watched_series,
-        "watchlistSeries": watchlist_series,
         "lists": user_lists,
         "errors": errors,
     }

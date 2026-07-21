@@ -16,11 +16,10 @@ data class FilmowList(
 data class FilmowProfile(
     val username: String,
     val displayName: String,
+    val recentlyWatched: List<Movie> = emptyList(),
     val watched: List<Movie> = emptyList(),
     val watchlist: List<Movie> = emptyList(),
     val favorites: List<Movie> = emptyList(),
-    val watchedSeries: List<Movie> = emptyList(),
-    val watchlistSeries: List<Movie> = emptyList(),
     val lists: List<FilmowList> = emptyList(),
     val errors: List<String> = emptyList()
 )
