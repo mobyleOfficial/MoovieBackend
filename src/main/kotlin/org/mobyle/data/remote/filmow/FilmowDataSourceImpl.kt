@@ -96,6 +96,7 @@ class FilmowDataSourceImpl(
             FilmowProfile(
                 username = obj["username"]?.jsonPrimitive?.content ?: "",
                 displayName = obj["displayName"]?.jsonPrimitive?.content ?: "",
+                watchedCount = obj["watchedCount"]?.jsonPrimitive?.intOrNull ?: 0,
                 recentlyWatched = recentlyWatchedDeferred.await(),
                 watched = watchedDeferred.await(),
                 watchlist = watchlistDeferred.await(),
@@ -175,7 +176,8 @@ class FilmowDataSourceImpl(
                     overview = "",
                     posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                    releaseDate = year?.let { "$it-01-01" }
+                    releaseDate = year?.let { "$it-01-01" },
+                    filmowId = movie["filmowId"]?.jsonPrimitive?.content
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")

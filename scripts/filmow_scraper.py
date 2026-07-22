@@ -62,9 +62,10 @@ def get_last_page(soup):
 
 
 def scrape_profile_page(session, username):
-    """Scrapes the profile page and returns display name + recently watched movies."""
+    """Scrapes the profile page and returns display name, stats, and recently watched movies."""
     display_name = username
     recent = []
+    stats = {}
 
     try:
         soup = get_page(session, f"{BASE_URL}/@{username}")
@@ -73,6 +74,17 @@ def scrape_profile_page(session, username):
         el = soup.select_one("span[itemprop=name] a") or soup.select_one("span[itemprop=name]")
         if el:
             display_name = el.get_text(strip=True)
+
+        # Stats from profile header (e.g. "4 Já Vi", "0 Comentários")
+        for a in soup.select(".profile__stats a"):
+            text = a.get_text(strip=True)
+            count_match = re.match(r"(\d+)", text)
+            if count_match:
+                count = int(count_match.group(1))
+                if "Vi" in text:
+                    stats["watchedCount"] = count
+
+        log(f"Stats: {stats}")
 
         # Recently watched from .last-seen section
         last_seen = soup.select_one(".last-seen")
@@ -101,7 +113,7 @@ def scrape_profile_page(session, username):
     except Exception as e:
         log(f"Failed to scrape profile page for @{username}: {e}")
 
-    return display_name, recent
+    return display_name, stats, recent
 
 
 def parse_movie_item_from_list(item, status):
@@ -296,6 +308,7 @@ def scrape_list_detail(session, href, errors):
 
             parsed = parse_movie_item_from_div(item, "Lista")
             if parsed:
+                parsed["filmowId"] = a.get("data-movie-pk", "")
                 movies.append(parsed)
 
         log(f"    page {page_num}/{total_pages} -> {len(items)} items")
@@ -359,7 +372,7 @@ def scrape_profile(username, cookies_str=""):
     session = create_session(cookies_str)
     errors = []
 
-    display_name, recently_watched = scrape_profile_page(session, username)
+    display_name, stats, recently_watched = scrape_profile_page(session, username)
 
     watched = scrape_section(session, username, "filmes", "ja-vi", errors)
     watchlist = scrape_section(session, username, "filmes", "quero-ver", errors)
@@ -369,6 +382,7 @@ def scrape_profile(username, cookies_str=""):
     return {
         "username": username,
         "displayName": display_name,
+        "watchedCount": stats.get("watchedCount", 0),
         "recentlyWatched": recently_watched,
         "watched": watched,
         "watchlist": watchlist,

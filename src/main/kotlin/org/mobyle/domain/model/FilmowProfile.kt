@@ -16,6 +16,7 @@ data class FilmowList(
 data class FilmowProfile(
     val username: String,
     val displayName: String,
+    val watchedCount: Int = 0,
     val recentlyWatched: List<Movie> = emptyList(),
     val watched: List<Movie> = emptyList(),
     val watchlist: List<Movie> = emptyList(),
