@@ -4,6 +4,7 @@ import org.mobyle.domain.usecase.GetCommentsUseCase
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
 import org.mobyle.domain.usecase.articles.GetArticleDetail
 import org.mobyle.domain.usecase.articles.GetArticles
+import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
@@ -50,6 +51,9 @@ val appModule = module {
     // Articles use cases
     factory { GetArticles(repository = get()) }
     factory { GetArticleDetail(repository = get()) }
+
+    // Filmow use cases
+    factory { ScrapeFilmowProfile(repository = get()) }
 
     // Auth use cases
     factory { ProcessOAuthCallback(authRepository = get<AuthRepository>()) }

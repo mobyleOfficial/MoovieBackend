@@ -21,6 +21,7 @@ import org.mobyle.routing.getActivitiesRouting
 import org.mobyle.routing.getArticlesRouting
 import org.mobyle.routing.getAuthRouting
 import org.mobyle.routing.getCommentsRouting
+import org.mobyle.routing.getFilmowRouting
 import org.mobyle.routing.getMoviesRouting
 import org.mobyle.routing.getProfileRouting
 import org.koin.ktor.plugin.Koin
@@ -127,5 +128,6 @@ fun Application.configureRouting() {
         getActivitiesRouting()
         getCommentsRouting()
         getArticlesRouting()
+        getFilmowRouting()
     }
 }

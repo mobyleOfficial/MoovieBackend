@@ -6,9 +6,12 @@ import kotlinx.serialization.Serializable
 data class Movie(
     val id: Int,
     val title: String,
-    val overview: String,
+    val localTitle: String? = null,
+    val originalTitle: String? = null,
+    val overview: String = "",
     val posterPath: String? = null,
     val backdropPath: String? = null,
     val voteAverage: Double = 0.0,
-    val releaseDate: String? = null
+    val releaseDate: String? = null,
+    val filmowId: String? = null
 )
