@@ -116,6 +116,16 @@ def scrape_profile_page(session, username):
     return display_name, stats, recent
 
 
+def extract_titles_from_alt(alt_text):
+    """Extract localTitle (PT) and originalTitle from alt text like 'Eternos (Eternals)'."""
+    orig_match = re.search(r"\(([^)]+)\)$", alt_text)
+    if orig_match:
+        local_title = alt_text[:orig_match.start()].strip()
+        original_title = orig_match.group(1)
+        return local_title, original_title
+    return alt_text.strip(), None
+
+
 def parse_movie_item_from_list(item, status):
     """Extract movie data from a li.movie_list_item element (classic layout)."""
     link = item.select_one("a.tip-movie[href]") or item.select_one("a[href]")
@@ -126,10 +136,9 @@ def parse_movie_item_from_list(item, status):
     alt_text = img.get("alt", "") if img else ""
     title = link.get("title", "").strip() or alt_text or link.get_text(strip=True)
 
-    # If alt has original title in parentheses like "Eternos (Eternals)", use the original
-    orig_match = re.search(r"\(([^)]+)\)$", alt_text)
-    if orig_match:
-        title = orig_match.group(1)
+    local_title, original_title = extract_titles_from_alt(alt_text)
+    if original_title:
+        title = original_title
 
     poster_url = None
     if img:
@@ -149,6 +158,8 @@ def parse_movie_item_from_list(item, status):
 
     return {
         "title": title,
+        "localTitle": local_title if original_title else None,
+        "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
         "voteAverage": 0.0,
@@ -168,6 +179,12 @@ def parse_movie_item_from_div(item, status):
 
     poster = item.select_one("img.movie-item__poster")
     poster_url = poster.get("src") if poster else None
+
+    # Extract original title from poster alt: "Título PT (Original Title)"
+    alt_text = poster.get("alt", "") if poster else ""
+    local_title, original_title = extract_titles_from_alt(alt_text)
+    if original_title:
+        title = original_title
 
     gr_el = item.select_one("span.movie-item__rating")
     vote_average = 0.0
@@ -190,6 +207,8 @@ def parse_movie_item_from_div(item, status):
 
     return {
         "title": title,
+        "localTitle": local_title if original_title else None,
+        "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
         "voteAverage": vote_average,

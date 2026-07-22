@@ -118,6 +118,8 @@ class FilmowDataSourceImpl(
 
         data class ParsedItem(
             val title: String,
+            val localTitle: String?,
+            val originalTitle: String?,
             val year: String?,
             val posterPath: String?,
             val voteAverage: Double
@@ -129,7 +131,14 @@ class FilmowDataSourceImpl(
                 val rawTitle = movie["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
                 val year = movie["year"]?.jsonPrimitive?.content
                 val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
-                ParsedItem(cleanTitle, year, movie["posterUrl"]?.jsonPrimitive?.content, movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0)
+                ParsedItem(
+                    cleanTitle,
+                    movie["localTitle"]?.jsonPrimitive?.content,
+                    movie["originalTitle"]?.jsonPrimitive?.content,
+                    year,
+                    movie["posterUrl"]?.jsonPrimitive?.content,
+                    movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")
                 null
@@ -147,10 +156,11 @@ class FilmowDataSourceImpl(
                     Movie(
                         id = tmdbId,
                         title = item.title,
+                        localTitle = item.localTitle,
+                        originalTitle = item.originalTitle,
                         overview = "",
                         posterPath = item.posterPath,
-                        voteAverage = item.voteAverage,
-                        releaseDate = item.year?.let { "$it-01-01" }
+                        voteAverage = item.voteAverage
                     )
                 }
             }.awaitAll().filterNotNull()
@@ -171,12 +181,13 @@ class FilmowDataSourceImpl(
                 val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
 
                 Movie(
-                    id = 0,
+                    id = -1,
                     title = cleanTitle,
+                    localTitle = movie["localTitle"]?.jsonPrimitive?.content,
+                    originalTitle = movie["originalTitle"]?.jsonPrimitive?.content,
                     overview = "",
                     posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                    releaseDate = year?.let { "$it-01-01" },
                     filmowId = movie["filmowId"]?.jsonPrimitive?.content
                 )
             } catch (e: Exception) {
