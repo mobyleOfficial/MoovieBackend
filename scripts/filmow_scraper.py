@@ -2,6 +2,8 @@
 Filmow profile scraper using cloudscraper to bypass Cloudflare.
 Called by the Kotlin backend as a subprocess.
 
+Based on https://github.com/yanari/filmow_to_letterboxd
+
 Usage:
     python filmow_scraper.py <username> [cookies]
 

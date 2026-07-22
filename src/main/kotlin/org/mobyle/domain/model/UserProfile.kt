@@ -8,6 +8,7 @@ data class UserProfile(
     val username: String,
     val bio: String? = null,
     val moviesWatched: List<Movie> = emptyList(),
+    val recentlyWatchedMovies: List<Movie> = emptyList(),
     val following: List<UserSummary> = emptyList(),
     val followers: List<UserSummary> = emptyList()
 )

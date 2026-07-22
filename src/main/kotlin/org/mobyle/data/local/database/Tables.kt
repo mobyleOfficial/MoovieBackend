@@ -5,9 +5,10 @@ import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 
 object UsersTable : LongIdTable("users") {
     val externalId = varchar("external_id", 255).uniqueIndex()
-    val username = varchar("username", 255)
+    val username = varchar("username", 255).uniqueIndex()
     val email = varchar("email", 255).nullable()
     val avatarUrl = varchar("avatar_url", 500).nullable()
+    val passwordHash = varchar("password_hash", 255).nullable()
     val createdAt = timestamp("created_at")
 }
 

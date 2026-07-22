@@ -13,6 +13,7 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import org.mobyle.data.local.database.DatabaseConfig
+import org.mobyle.data.local.auth.TokenBlocklistDataSource
 import org.mobyle.data.remote.articles.ArticlesDataSource
 import org.koin.ktor.ext.inject
 import org.mobyle.data.di.dataModule
@@ -41,6 +42,7 @@ fun main() {
         configureKoin()
         configureRouting()
         scheduleArticleScraping()
+        scheduleTokenBlocklistCleanup()
     }.start(wait = true)
 }
 
@@ -108,6 +110,23 @@ private fun Application.scheduleArticleScraping() {
                 log.error("Article scraping failed", e)
             }
             delay(intervalMs)
+        }
+    }
+}
+
+private fun Application.scheduleTokenBlocklistCleanup() {
+    val tokenBlocklistDataSource by inject<TokenBlocklistDataSource>()
+    val intervalMs = 15 * 60 * 1000L // 15 minutes
+
+    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        while (isActive) {
+            delay(intervalMs)
+            try {
+                tokenBlocklistDataSource.cleanup()
+                log.debug("Token blocklist cleanup completed")
+            } catch (e: Exception) {
+                log.error("Token blocklist cleanup failed", e)
+            }
         }
     }
 }
