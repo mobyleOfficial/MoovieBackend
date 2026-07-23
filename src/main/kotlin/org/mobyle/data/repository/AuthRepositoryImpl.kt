@@ -148,16 +148,12 @@ class AuthRepositoryImpl(
                 // Password correct — generate JWT
                 val accessToken = jwtUtil.generateToken(existingUser)
 
-                // Fetch recently watched movies for existing user
-                val recentMovies = userDatabaseDataSource.findRecentlyWatchedMovies(existingUser.id)
-
                 val authToken = AuthToken(
                     accessToken = accessToken,
                     tokenType = "Bearer",
                     expiresIn = jwtUtil.jwtExpirySeconds,
                     user = existingUser.copy(passwordHash = null), // never leak hash
-                    isNewUser = false,
-                    recentlyWatchedMovies = recentMovies
+                    isNewUser = false
                 )
 
                 // Update L1 cache

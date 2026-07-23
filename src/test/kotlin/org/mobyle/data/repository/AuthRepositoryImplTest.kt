@@ -69,7 +69,6 @@ class AuthRepositoryImplTest {
         )
 
         every { userDatabaseDataSource.findByEmail("existing@example.com") } returns existingUser
-        every { userDatabaseDataSource.findRecentlyWatchedMovies("user-123", 10) } returns emptyList()
 
         val result = repository.loginUser("existing@example.com", "correctPassword1")
 

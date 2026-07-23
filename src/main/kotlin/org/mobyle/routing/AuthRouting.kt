@@ -98,9 +98,9 @@ fun Route.getAuthRouting() {
                 val user = authToken.user
 
                 val profile = UserProfile(
-                    photoUrl = user.avatar,
+                    photoUrl = user.avatar ?: "",
                     username = user.username,
-                    recentlyWatchedMovies = authToken.recentlyWatchedMovies
+                    bio = user.bio ?: ""
                 )
 
                 val response = LoginAuthTokenResponse(

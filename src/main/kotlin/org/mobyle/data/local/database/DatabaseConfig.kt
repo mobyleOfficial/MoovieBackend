@@ -34,6 +34,7 @@ object DatabaseConfig {
                 UsersTable,
                 MoviesTable,
                 UserMoviesTable,
+                UserFollowsTable,
                 UserListsTable,
                 UserListItemsTable,
                 TagsTable,

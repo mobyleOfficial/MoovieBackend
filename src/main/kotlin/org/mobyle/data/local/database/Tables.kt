@@ -8,8 +8,19 @@ object UsersTable : LongIdTable("users") {
     val username = varchar("username", 255).uniqueIndex()
     val email = varchar("email", 255).nullable()
     val avatarUrl = varchar("avatar_url", 500).nullable()
+    val bio = varchar("bio", 500).nullable()
     val passwordHash = varchar("password_hash", 255).nullable()
     val createdAt = timestamp("created_at")
+}
+
+object UserFollowsTable : LongIdTable("user_follows") {
+    val followerId = reference("follower_id", UsersTable)
+    val followedId = reference("followed_id", UsersTable)
+    val createdAt = timestamp("created_at")
+
+    init {
+        uniqueIndex("uq_follower_followed", followerId, followedId)
+    }
 }
 
 object MoviesTable : LongIdTable("movies") {

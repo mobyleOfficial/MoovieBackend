@@ -72,20 +72,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         return UserProfile(
             username = "@filmfan42",
             bio = "Film enthusiast and movie critic",
-            photoUrl = "https://api.example.com/avatars/user-001.jpg",
-            moviesWatched = listOf(
-                Movie(550, "Fight Club", "A banked executive and a devil-may-care soapmaker form an underground fight club", "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg", voteAverage = 8.8),
-                Movie(278, "The Shawshank Redemption", "Two imprisoned men bond over a number of years, finding solace and eventual redemption", "/q6725aR8Zs4IwsER1POIPZeroA8.jpg", voteAverage = 9.3),
-                Movie(238, "The Godfather", "The aging patriarch of an organized crime dynasty transfers control to his reluctant youngest son", "/3bhkrj58Vtu7enYsRolD1fZQeQA.jpg", voteAverage = 9.2)
-            ),
-            following = listOf(
-                UserSummary("user-002", "Bruno Carvalho", "https://api.example.com/avatars/user-002.jpg"),
-                UserSummary("user-003", "Camila Torres", "https://api.example.com/avatars/user-003.jpg")
-            ),
-            followers = listOf(
-                UserSummary("user-004", "Diego Ferreira", "https://api.example.com/avatars/user-004.jpg"),
-                UserSummary("user-005", "Elena Souza", "https://api.example.com/avatars/user-005.jpg")
-            )
+            photoUrl = "https://api.example.com/avatars/user-001.jpg"
         )
     }
 

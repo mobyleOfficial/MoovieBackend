@@ -10,8 +10,7 @@ data class AuthToken(
     val expiresIn: Long, // seconds
     val refreshToken: String? = null,
     val user: User,
-    @Transient val isNewUser: Boolean = false,
-    @Transient val recentlyWatchedMovies: List<Movie> = emptyList()
+    @Transient val isNewUser: Boolean = false
 )
 
 data class JWTClaims(

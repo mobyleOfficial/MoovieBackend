@@ -1,5 +1,6 @@
 package org.mobyle.data.util
 
+import org.mobyle.data.remote.auth.JWTUtil
 import org.mobyle.domain.model.User
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -35,11 +35,13 @@ fun Route.getProfileRouting() {
             return@get
         }
 
-        val recentMovies = userDatabaseDataSource.findRecentlyWatchedMovies(user.id)
         val profile = UserProfile(
-            photoUrl = user.avatar,
+            photoUrl = user.avatar ?: "",
             username = user.username,
-            recentlyWatchedMovies = recentMovies
+            bio = user.bio ?: "",
+            moviesWatchedCount = userDatabaseDataSource.countWatchedMovies(user.id),
+            followingCount = userDatabaseDataSource.countFollowing(user.id),
+            followersCount = userDatabaseDataSource.countFollowers(user.id)
         )
         call.respond(HttpStatusCode.OK, profile)
     }

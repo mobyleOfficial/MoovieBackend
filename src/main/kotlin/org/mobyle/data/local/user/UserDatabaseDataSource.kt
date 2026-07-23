@@ -1,22 +1,22 @@
 package org.mobyle.data.local.user
 
 import kotlinx.datetime.Clock
-import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.mobyle.data.local.database.MoviesTable
+import org.mobyle.data.local.database.UserFollowsTable
 import org.mobyle.data.local.database.UserMoviesTable
 import org.mobyle.data.local.database.UsersTable
-import org.mobyle.domain.model.Movie
 import org.mobyle.domain.model.User
 
 interface UserDatabaseDataSource {
     fun findByEmail(email: String): User?
     fun save(user: User): User
     fun findByUsername(prefix: String): List<String>
-    fun findRecentlyWatchedMovies(userExternalId: String, limit: Int = 10): List<Movie>
+    fun countWatchedMovies(userExternalId: String): Int
+    fun countFollowing(userExternalId: String): Int
+    fun countFollowers(userExternalId: String): Int
 }
 
 class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
@@ -32,6 +32,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                         email = row[UsersTable.email] ?: "",
                         username = row[UsersTable.username],
                         avatar = row[UsersTable.avatarUrl],
+                        bio = row[UsersTable.bio],
                         createdAt = row[UsersTable.createdAt].toString(),
                         passwordHash = row[UsersTable.passwordHash]
                     )
@@ -46,6 +47,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                 it[username] = user.username
                 it[email] = user.email
                 it[avatarUrl] = user.avatar
+                it[bio] = user.bio
                 it[passwordHash] = user.passwordHash
                 it[createdAt] = Clock.System.now()
             }
@@ -61,30 +63,46 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
         }
     }
 
-    override fun findRecentlyWatchedMovies(userExternalId: String, limit: Int): List<Movie> {
-        return transaction {
-            // Resolve internal DB id from external id
-            val userDbId = UsersTable.selectAll()
-                .where { UsersTable.externalId eq userExternalId }
-                .firstOrNull()
-                ?.get(UsersTable.id)?.value ?: return@transaction emptyList()
+    private fun resolveUserDbId(userExternalId: String): Long? {
+        return UsersTable.selectAll()
+            .where { UsersTable.externalId eq userExternalId }
+            .firstOrNull()
+            ?.get(UsersTable.id)?.value
+    }
 
-            (UserMoviesTable innerJoin MoviesTable)
-                .selectAll()
+    override fun countWatchedMovies(userExternalId: String): Int {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction 0
+
+            UserMoviesTable.selectAll()
                 .where {
                     (UserMoviesTable.userId eq userDbId) and
                         (UserMoviesTable.status eq "watched")
                 }
-                .orderBy(UserMoviesTable.watchedAt, SortOrder.DESC)
-                .limit(limit)
-                .map { row ->
-                    Movie(
-                        id = row[MoviesTable.tmdbId],
-                        title = row[MoviesTable.title],
-                        originalTitle = row[MoviesTable.originalTitle],
-                        posterPath = row[MoviesTable.posterPath]
-                    )
-                }
+                .count()
+                .toInt()
+        }
+    }
+
+    override fun countFollowing(userExternalId: String): Int {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction 0
+
+            UserFollowsTable.selectAll()
+                .where { UserFollowsTable.followerId eq userDbId }
+                .count()
+                .toInt()
+        }
+    }
+
+    override fun countFollowers(userExternalId: String): Int {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction 0
+
+            UserFollowsTable.selectAll()
+                .where { UserFollowsTable.followedId eq userDbId }
+                .count()
+                .toInt()
         }
     }
 }

@@ -9,6 +9,7 @@ data class User(
     val email: String,
     val username: String,
     val avatar: String? = null,
+    val bio: String? = null,
     val createdAt: String,
     @Transient val passwordHash: String? = null
 )
