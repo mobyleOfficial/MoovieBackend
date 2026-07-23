@@ -1,4 +1,4 @@
-package org.mobyle.data.util
+package org.mobyle.data.remote.auth
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject

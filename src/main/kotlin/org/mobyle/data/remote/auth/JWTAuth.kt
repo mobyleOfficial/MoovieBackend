@@ -1,4 +1,4 @@
-package org.mobyle.auth
+package org.mobyle.data.remote.auth
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall

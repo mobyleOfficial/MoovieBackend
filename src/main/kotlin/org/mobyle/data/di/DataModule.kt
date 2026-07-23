@@ -33,7 +33,7 @@ import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
 import org.mobyle.data.repository.UserActivitiesRepositoryImpl
 import org.mobyle.data.repository.UserRepositoryImpl
-import org.mobyle.data.util.JWTUtil
+import org.mobyle.data.remote.auth.JWTUtil
 import org.mobyle.domain.repository.AuthRepository
 import org.mobyle.domain.repository.ArticlesRepository
 import org.mobyle.domain.repository.CommentsRepository
@@ -174,7 +174,7 @@ val dataModule = module {
             ?: throw IllegalStateException(
                 "JWT_SECRET environment variable is not set. Generate one with: openssl rand -base64 32"
             )
-        val expirySeconds = System.getenv("JWT_EXPIRY_SECONDS")?.toLongOrNull() ?: 3600
+        val expirySeconds = System.getenv("JWT_EXPIRY_SECONDS")?.toLongOrNull() ?: 86400
         val issuer = System.getenv("JWT_ISSUER")?.takeIf { it.isNotBlank() } ?: "moovie-backend"
 
         JWTUtil(

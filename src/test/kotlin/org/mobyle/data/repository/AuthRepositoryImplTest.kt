@@ -10,7 +10,7 @@ import org.mobyle.data.local.auth.TokenBlocklistDataSource
 import org.mobyle.data.local.oauth.OAuthStateDataSource
 import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.data.local.user.UserLocalDataSource
-import org.mobyle.data.util.JWTUtil
+import org.mobyle.data.remote.auth.JWTUtil
 import org.mobyle.domain.model.User
 import org.mobyle.domain.repository.UserRepository
 import kotlin.test.Test

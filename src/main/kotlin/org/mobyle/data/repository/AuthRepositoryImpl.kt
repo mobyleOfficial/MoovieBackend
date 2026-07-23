@@ -6,7 +6,7 @@ import org.mobyle.data.local.oauth.OAuthStateDataSource
 import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.data.local.user.UserLocalDataSource
 import org.mobyle.data.remote.oauth.OAuthDataSource
-import org.mobyle.data.util.JWTUtil
+import org.mobyle.data.remote.auth.JWTUtil
 import org.mobyle.domain.model.AuthToken
 import org.mobyle.domain.model.JWTClaims
 import org.mobyle.domain.model.OAuthCallbackRequest
@@ -225,24 +225,38 @@ class AuthRepositoryImpl(
         }
     }
 
-    /**
-     * Generates a username from email prefix.
-     * If conflict exists, appends numeric suffix (e.g. "joao.silva" -> "joao.silva_1").
-     */
     private fun generateUsername(email: String): String {
-        val prefix = email.substringBefore("@")
-            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val adjectives = listOf(
+            "epic", "cosmic", "rebel", "shadow", "golden",
+            "neon", "velvet", "chrome", "lunar", "stellar",
+            "dark", "silent", "iron", "wild", "lost"
+        )
 
-        val existingUsernames = userDatabaseDataSource.findByUsername(prefix)
+        val movieReferences = listOf(
+            "jedi", "hobbit", "gatsby", "morpheus", "ripley",
+            "maverick", "neo", "gandalf", "stark", "wick",
+            "mcfly", "indy", "furiosa", "vito", "t800",
+            "joker", "rocky", "rambo", "batman", "logan",
+            "simba", "woody", "nemo", "shrek", "gollum",
+            "dumbledore", "yoda", "spock", "alien", "predator"
+        )
 
-        if (!existingUsernames.contains(prefix)) {
-            return prefix
+        val random = java.util.concurrent.ThreadLocalRandom.current()
+        val maxAttempts = 50
+
+        repeat(maxAttempts) {
+            val adjective = adjectives[random.nextInt(adjectives.size)]
+            val movie = movieReferences[random.nextInt(movieReferences.size)]
+            val number = random.nextInt(10, 1000)
+            val candidate = "${adjective}_${movie}_$number"
+
+            val existing = userDatabaseDataSource.findByUsername(candidate)
+            if (!existing.contains(candidate)) {
+                return candidate
+            }
         }
 
-        var suffix = 1
-        while (existingUsernames.contains("${prefix}_$suffix")) {
-            suffix++
-        }
-        return "${prefix}_$suffix"
+        // Fallback: UUID-based
+        return "moovie_${java.util.UUID.randomUUID().toString().take(8)}"
     }
 }

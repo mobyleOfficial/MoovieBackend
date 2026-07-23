@@ -6,7 +6,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import org.mobyle.auth.authenticateJWT
+import org.mobyle.data.remote.auth.authenticateJWT
 import org.mobyle.di.injection
 import org.mobyle.domain.model.MovieReviewDraft
 import org.mobyle.domain.usecase.activities.GetFriendsActivities
