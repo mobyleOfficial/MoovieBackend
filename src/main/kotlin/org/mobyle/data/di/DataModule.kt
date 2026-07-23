@@ -80,7 +80,10 @@ val dataModule = module {
 
     single<MoviesRepository> {
         try {
-            MoviesRepositoryImpl(tmdbDataSource = get())
+            MoviesRepositoryImpl(
+                tmdbDataSource = get(),
+                userDatabaseDataSource = get()
+            )
         } catch (e: Exception) {
             throw IllegalStateException("Failed to create MoviesRepositoryImpl: ${e.message}", e)
         }

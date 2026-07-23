@@ -9,5 +9,6 @@ data class UserProfile(
     val bio: String = "",
     val moviesWatchedCount: Int = 0,
     val followingCount: Int = 0,
-    val followersCount: Int = 0
+    val followersCount: Int = 0,
+    val recentMovies: List<Movie> = emptyList()
 )

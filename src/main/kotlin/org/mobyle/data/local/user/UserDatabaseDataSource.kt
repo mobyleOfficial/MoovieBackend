@@ -1,13 +1,16 @@
 package org.mobyle.data.local.user
 
 import kotlinx.datetime.Clock
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.mobyle.data.local.database.MoviesTable
 import org.mobyle.data.local.database.UserFollowsTable
 import org.mobyle.data.local.database.UserMoviesTable
 import org.mobyle.data.local.database.UsersTable
+import org.mobyle.domain.model.Movie
 import org.mobyle.domain.model.User
 
 interface UserDatabaseDataSource {
@@ -17,6 +20,7 @@ interface UserDatabaseDataSource {
     fun countWatchedMovies(userExternalId: String): Int
     fun countFollowing(userExternalId: String): Int
     fun countFollowers(userExternalId: String): Int
+    fun getRecentWatchedMovies(userExternalId: String, limit: Int): List<Movie>
 }
 
 class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
@@ -103,6 +107,30 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                 .where { UserFollowsTable.followedId eq userDbId }
                 .count()
                 .toInt()
+        }
+    }
+
+    override fun getRecentWatchedMovies(userExternalId: String, limit: Int): List<Movie> {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction emptyList()
+
+            (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.status eq "watched")
+                }
+                .orderBy(UserMoviesTable.watchedAt, SortOrder.DESC)
+                .limit(limit)
+                .map { row ->
+                    Movie(
+                        id = row[MoviesTable.tmdbId],
+                        title = row[MoviesTable.title],
+                        originalTitle = row[MoviesTable.originalTitle],
+                        posterPath = row[MoviesTable.posterPath],
+                        releaseDate = row[MoviesTable.year]?.toString()
+                    )
+                }
         }
     }
 }

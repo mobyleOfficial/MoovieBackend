@@ -41,7 +41,8 @@ fun Route.getProfileRouting() {
             bio = user.bio ?: "",
             moviesWatchedCount = userDatabaseDataSource.countWatchedMovies(user.id),
             followingCount = userDatabaseDataSource.countFollowing(user.id),
-            followersCount = userDatabaseDataSource.countFollowers(user.id)
+            followersCount = userDatabaseDataSource.countFollowers(user.id),
+            recentMovies = userDatabaseDataSource.getRecentWatchedMovies(user.id, limit = 10)
         )
         call.respond(HttpStatusCode.OK, profile)
     }

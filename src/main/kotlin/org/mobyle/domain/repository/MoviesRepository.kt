@@ -30,4 +30,5 @@ interface MoviesRepository {
     suspend fun getUserMovieLists(page: Int): MovieListListing
     suspend fun getMovieListDetail(listId: Int, page: Int): MovieListDetail
     suspend fun getFeaturedLists(page: Int): MovieListListing
+    suspend fun getRecentMovies(userId: String, limit: Int = 10): MovieListing
 }

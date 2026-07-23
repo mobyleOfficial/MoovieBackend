@@ -36,6 +36,7 @@ val appModule = module {
     factory { GetUserMovieLists(repository = get<MoviesRepository>()) }
     factory { GetMovieListDetail(repository = get<MoviesRepository>()) }
     factory { GetFeaturedLists(repository = get<MoviesRepository>()) }
+    factory { GetRecentMovies(repository = get<MoviesRepository>()) }
 
     // Profile use cases
     factory { GetUserProfile(repository = get()) }
