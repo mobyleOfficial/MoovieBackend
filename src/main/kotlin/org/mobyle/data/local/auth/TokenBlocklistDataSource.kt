@@ -1,20 +1,36 @@
 package org.mobyle.data.local.auth
 
-import java.util.concurrent.ConcurrentHashMap
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.upsert
+import org.mobyle.data.local.database.TokenBlocklistTable
 
 class TokenBlocklistDataSource {
-    private val blocklist = ConcurrentHashMap<String, Long>() // token -> expiresAt (unix seconds)
 
     fun revoke(token: String, expiresAt: Long) {
-        blocklist[token] = expiresAt
+        transaction {
+            TokenBlocklistTable.upsert(TokenBlocklistTable.token) {
+                it[TokenBlocklistTable.token] = token
+                it[TokenBlocklistTable.expiresAt] = expiresAt
+            }
+        }
     }
 
     fun isRevoked(token: String): Boolean {
-        return blocklist.containsKey(token)
+        return transaction {
+            TokenBlocklistTable.selectAll()
+                .where { TokenBlocklistTable.token eq token }
+                .count() > 0
+        }
     }
 
     fun cleanup() {
         val now = System.currentTimeMillis() / 1000
-        blocklist.entries.removeIf { it.value < now }
+        transaction {
+            TokenBlocklistTable.deleteWhere { expiresAt less now }
+        }
     }
 }

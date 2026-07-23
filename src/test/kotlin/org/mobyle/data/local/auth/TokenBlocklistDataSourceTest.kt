@@ -1,14 +1,33 @@
 package org.mobyle.data.local.auth
 
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.mobyle.data.local.database.TokenBlocklistTable
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TokenBlocklistDataSourceTest {
 
+    private lateinit var blocklist: TokenBlocklistDataSource
+
+    @BeforeTest
+    fun setUp() {
+        Database.connect("jdbc:h2:mem:test_blocklist;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+        transaction { SchemaUtils.create(TokenBlocklistTable) }
+        blocklist = TokenBlocklistDataSource()
+    }
+
+    @AfterTest
+    fun tearDown() {
+        transaction { SchemaUtils.drop(TokenBlocklistTable) }
+    }
+
     @Test
     fun `revoke adds token to blocklist`() {
-        val blocklist = TokenBlocklistDataSource()
         val token = "test-token-123"
         val expiresAt = System.currentTimeMillis() / 1000 + 3600
 
@@ -19,20 +38,15 @@ class TokenBlocklistDataSourceTest {
 
     @Test
     fun `isRevoked returns false for unknown token`() {
-        val blocklist = TokenBlocklistDataSource()
-
         assertFalse(blocklist.isRevoked("unknown-token"))
     }
 
     @Test
     fun `cleanup removes expired tokens`() {
-        val blocklist = TokenBlocklistDataSource()
         val expiredToken = "expired-token"
         val validToken = "valid-token"
 
-        // Token that expired in the past
         blocklist.revoke(expiredToken, System.currentTimeMillis() / 1000 - 100)
-        // Token that expires in the future
         blocklist.revoke(validToken, System.currentTimeMillis() / 1000 + 3600)
 
         blocklist.cleanup()
@@ -43,13 +57,11 @@ class TokenBlocklistDataSourceTest {
 
     @Test
     fun `cleanup with empty blocklist does not throw`() {
-        val blocklist = TokenBlocklistDataSource()
-        blocklist.cleanup() // should not throw
+        blocklist.cleanup()
     }
 
     @Test
     fun `revoking same token twice overwrites expiry`() {
-        val blocklist = TokenBlocklistDataSource()
         val token = "test-token"
 
         blocklist.revoke(token, 100L)
@@ -57,7 +69,6 @@ class TokenBlocklistDataSourceTest {
 
         assertTrue(blocklist.isRevoked(token))
 
-        // After cleanup, it should still be there since we updated expiry to future
         blocklist.cleanup()
         assertTrue(blocklist.isRevoked(token))
     }

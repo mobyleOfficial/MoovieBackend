@@ -96,3 +96,8 @@ object MovieTagsTable : LongIdTable("movie_tags") {
         uniqueIndex("uq_tag_user_movie", tagId, userMovieId)
     }
 }
+
+object TokenBlocklistTable : LongIdTable("token_blocklist") {
+    val token = varchar("token", 1000).uniqueIndex()
+    val expiresAt = long("expires_at")
+}
