@@ -22,6 +22,7 @@ fun Route.getMoviesRouting() {
     val getUserMovieLists by injection<GetUserMovieLists>()
     val getMovieListDetail by injection<GetMovieListDetail>()
     val getFeaturedLists by injection<GetFeaturedLists>()
+    val getRecentMovies by injection<GetRecentMovies>()
 
     get("/movies/trending") {
         val page = call.parameters["page"]?.toIntOrNull() ?: 1
@@ -93,6 +94,11 @@ fun Route.getMoviesRouting() {
         }
         val page = call.parameters["page"]?.toIntOrNull() ?: 1
         call.respond(getMovieReviews(page = page, movieId = movieId))
+    }
+
+    get("/movies/recent/{userId}") {
+        val userId = call.parameters["userId"] ?: ""
+        call.respond(getRecentMovies(userId))
     }
 
     get("/movies/favorites/{userId}") {

@@ -10,6 +10,8 @@ interface AuthRepository {
     suspend fun validateToken(token: String): Result<JWTClaims>
     suspend fun refreshToken(refreshToken: String): Result<AuthToken>
     suspend fun getUserById(userId: String): Result<User>
+    suspend fun loginUser(email: String, password: String): Result<AuthToken>
+    suspend fun logoutUser(token: String): Result<Unit>
 }
 
 interface UserRepository {

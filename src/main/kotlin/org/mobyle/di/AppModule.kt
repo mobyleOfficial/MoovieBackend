@@ -7,6 +7,8 @@ import org.mobyle.domain.usecase.articles.GetArticles
 import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
 import org.mobyle.domain.usecase.activities.GetUserActivities
 import org.mobyle.domain.usecase.activities.SubmitReview
+import org.mobyle.domain.usecase.auth.LoginUser
+import org.mobyle.domain.usecase.auth.LogoutUser
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
 import org.mobyle.domain.usecase.auth.RefreshToken
 import org.mobyle.domain.usecase.auth.ValidateToken
@@ -34,6 +36,7 @@ val appModule = module {
     factory { GetUserMovieLists(repository = get<MoviesRepository>()) }
     factory { GetMovieListDetail(repository = get<MoviesRepository>()) }
     factory { GetFeaturedLists(repository = get<MoviesRepository>()) }
+    factory { GetRecentMovies(repository = get<MoviesRepository>()) }
 
     // Profile use cases
     factory { GetUserProfile(repository = get()) }
@@ -59,4 +62,6 @@ val appModule = module {
     factory { ProcessOAuthCallback(authRepository = get<AuthRepository>()) }
     factory { ValidateToken(authRepository = get<AuthRepository>()) }
     factory { RefreshToken(authRepository = get<AuthRepository>()) }
+    factory { LoginUser(authRepository = get<AuthRepository>()) }
+    factory { LogoutUser(authRepository = get<AuthRepository>()) }
 }

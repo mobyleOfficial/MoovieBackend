@@ -5,10 +5,22 @@ import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 
 object UsersTable : LongIdTable("users") {
     val externalId = varchar("external_id", 255).uniqueIndex()
-    val username = varchar("username", 255)
+    val username = varchar("username", 255).uniqueIndex()
     val email = varchar("email", 255).nullable()
     val avatarUrl = varchar("avatar_url", 500).nullable()
+    val bio = varchar("bio", 500).nullable()
+    val passwordHash = varchar("password_hash", 255).nullable()
     val createdAt = timestamp("created_at")
+}
+
+object UserFollowsTable : LongIdTable("user_follows") {
+    val followerId = reference("follower_id", UsersTable)
+    val followedId = reference("followed_id", UsersTable)
+    val createdAt = timestamp("created_at")
+
+    init {
+        uniqueIndex("uq_follower_followed", followerId, followedId)
+    }
 }
 
 object MoviesTable : LongIdTable("movies") {
@@ -83,4 +95,9 @@ object MovieTagsTable : LongIdTable("movie_tags") {
     init {
         uniqueIndex("uq_tag_user_movie", tagId, userMovieId)
     }
+}
+
+object TokenBlocklistTable : LongIdTable("token_blocklist") {
+    val token = varchar("token", 1000).uniqueIndex()
+    val expiresAt = long("expires_at")
 }

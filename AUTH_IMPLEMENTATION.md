@@ -7,7 +7,7 @@ This document describes the complete authentication flow implementation for the 
 ## Features Implemented
 
 ### 1. OAuth Callback Endpoint
-- **Endpoint:** `POST /api/v1/auth/oauth/callback`
+- **Endpoint:** `POST /auth/oauth/callback`
 - **Validates:** OAuth state parameter (CSRF protection)
 - **Exchanges:** Authorization code for OAuth provider token
 - **Retrieves:** User information from OAuth provider
@@ -21,7 +21,7 @@ This document describes the complete authentication flow implementation for the 
 - **Storage:** Optional; frontend responsible for secure storage
 
 ### 3. Token Refresh Endpoint
-- **Endpoint:** `POST /api/v1/auth/refresh`
+- **Endpoint:** `POST /auth/refresh`
 - **Status:** Deferred to Phase 2 (returns 501 not_implemented)
 - **Future:** Will support refresh token rotation
 
@@ -56,7 +56,7 @@ This document describes the complete authentication flow implementation for the 
 - **JWT Utility:** Token generation and validation
 
 ### Presentation Layer
-- **Routes:** `/api/v1/auth/oauth/callback`, `/api/v1/auth/refresh`
+- **Routes:** `/auth/oauth/callback`, `/auth/refresh`
 - **Middleware:** Custom JWT authentication (via `authenticateJWT` extension)
 - **Error Responses:** Standardized error format with descriptive messages
 
@@ -76,7 +76,7 @@ OAUTH_PROVIDER_URL="<https://your-oauth-provider.com/oauth>"
 ```bash
 JWT_EXPIRY_SECONDS=3600          # Default: 1 hour
 JWT_ISSUER="moovie-backend"       # Default: moovie-backend
-OAUTH_REDIRECT_URI="..."          # Default: http://localhost:8080/api/v1/auth/oauth/callback
+OAUTH_REDIRECT_URI="..."          # Default: http://localhost:8080/auth/oauth/callback
 ```
 
 ### Koin DI Setup
@@ -101,7 +101,7 @@ factory { RefreshToken(...) }
 
 ### OAuth Callback Request
 ```json
-POST /api/v1/auth/oauth/callback
+POST /auth/oauth/callback
 {
   "code": "authorization_code_from_provider",
   "state": "csrf_protection_nonce",

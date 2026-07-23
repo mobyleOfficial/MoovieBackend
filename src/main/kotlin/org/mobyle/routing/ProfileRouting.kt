@@ -6,9 +6,10 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.put
-import org.mobyle.auth.authenticateJWT
+import org.mobyle.data.remote.auth.authenticateJWT
 import org.mobyle.di.injection
 import org.mobyle.domain.model.UserProfile
+import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.domain.usecase.profile.GetPublicProfile
 import org.mobyle.domain.usecase.profile.GetUserProfile
 import org.mobyle.domain.usecase.profile.UpdateUserProfile
@@ -19,9 +20,31 @@ fun Route.getProfileRouting() {
     val updateUserProfile by injection<UpdateUserProfile>()
     val getPublicProfile by injection<GetPublicProfile>()
     val validateToken by injection<ValidateToken>()
+    val userDatabaseDataSource by injection<UserDatabaseDataSource>()
 
     get("/profile") {
-        call.respond(getUserProfile())
+        val principal = call.authenticateJWT(validateToken) ?: return@get
+        val email = principal.claims.email
+
+        val user = userDatabaseDataSource.findByEmail(email)
+        if (user == null) {
+            call.respond(
+                HttpStatusCode.NotFound,
+                org.mobyle.data.remote.auth.ErrorResponse("user_not_found", "User not found")
+            )
+            return@get
+        }
+
+        val profile = UserProfile(
+            photoUrl = user.avatar ?: "",
+            username = user.username,
+            bio = user.bio ?: "",
+            moviesWatchedCount = userDatabaseDataSource.countWatchedMovies(user.id),
+            followingCount = userDatabaseDataSource.countFollowing(user.id),
+            followersCount = userDatabaseDataSource.countFollowers(user.id),
+            recentMovies = userDatabaseDataSource.getRecentWatchedMovies(user.id, limit = 10)
+        )
+        call.respond(HttpStatusCode.OK, profile)
     }
 
     put("/profile") {

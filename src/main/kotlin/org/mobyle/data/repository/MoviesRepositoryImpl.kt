@@ -1,5 +1,6 @@
 package org.mobyle.data.repository
 
+import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.data.remote.tmdb.TmdbDataSource
 import org.mobyle.data.remote.tmdb.toDomain
 import org.mobyle.domain.model.*
@@ -9,7 +10,8 @@ import org.mobyle.model.MovieListListing
 import org.mobyle.model.MovieReviewListing
 
 class MoviesRepositoryImpl(
-    private val tmdbDataSource: TmdbDataSource
+    private val tmdbDataSource: TmdbDataSource,
+    private val userDatabaseDataSource: UserDatabaseDataSource
 ) : MoviesRepository {
 
     override suspend fun getTrendingMovies(page: Int): MovieListing {
@@ -87,5 +89,14 @@ class MoviesRepositoryImpl(
     override suspend fun getFeaturedLists(page: Int): MovieListListing {
         // TODO: Replace with actual user data storage
         return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())
+    }
+
+    override suspend fun getRecentMovies(userId: String, limit: Int): MovieListing {
+        val movies = userDatabaseDataSource.getRecentWatchedMovies(userId, limit)
+        return MovieListing(
+            totalPages = 1,
+            totalResults = movies.size,
+            movies = movies
+        )
     }
 }

@@ -8,8 +8,11 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import org.mobyle.data.local.auth.TokenBlocklistDataSource
 import org.mobyle.data.local.oauth.OAuthStateDataSource
 import org.mobyle.data.local.oauth.OAuthStateDataSourceImpl
+import org.mobyle.data.local.user.UserDatabaseDataSource
+import org.mobyle.data.local.user.UserDatabaseDataSourceImpl
 import org.mobyle.data.local.user.UserLocalDataSource
 import org.mobyle.data.local.user.UserLocalDataSourceImpl
 import org.mobyle.data.remote.articles.ArticlesDataSource
@@ -30,7 +33,7 @@ import org.mobyle.data.repository.MoviesRepositoryImpl
 import org.mobyle.data.repository.ProfileRepositoryImpl
 import org.mobyle.data.repository.UserActivitiesRepositoryImpl
 import org.mobyle.data.repository.UserRepositoryImpl
-import org.mobyle.data.util.JWTUtil
+import org.mobyle.data.remote.auth.JWTUtil
 import org.mobyle.domain.repository.AuthRepository
 import org.mobyle.domain.repository.ArticlesRepository
 import org.mobyle.domain.repository.CommentsRepository
@@ -77,7 +80,10 @@ val dataModule = module {
 
     single<MoviesRepository> {
         try {
-            MoviesRepositoryImpl(tmdbDataSource = get())
+            MoviesRepositoryImpl(
+                tmdbDataSource = get(),
+                userDatabaseDataSource = get()
+            )
         } catch (e: Exception) {
             throw IllegalStateException("Failed to create MoviesRepositoryImpl: ${e.message}", e)
         }
@@ -120,46 +126,50 @@ val dataModule = module {
         UserLocalDataSourceImpl()
     }
 
+    single<UserDatabaseDataSource> {
+        UserDatabaseDataSourceImpl()
+    }
+
+    single<TokenBlocklistDataSource> {
+        TokenBlocklistDataSource()
+    }
+
     single<OAuthStateDataSource> {
         OAuthStateDataSourceImpl()
     }
 
-    single<OAuthDataSource> {
+    run {
         val clientId = System.getenv("OAUTH_CLIENT_ID")?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException(
-                "OAUTH_CLIENT_ID environment variable is not set. Set it to your OAuth provider's client ID."
-            )
         val clientSecret = System.getenv("OAUTH_CLIENT_SECRET")?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException(
-                "OAUTH_CLIENT_SECRET environment variable is not set. Set it to your OAuth provider's client secret."
-            )
         val providerUrl = System.getenv("OAUTH_PROVIDER_URL")?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException(
-                "OAUTH_PROVIDER_URL environment variable is not set. Set it to your OAuth provider's base URL."
-            )
-        val redirectUri = System.getenv("OAUTH_REDIRECT_URI")?.takeIf { it.isNotBlank() }
-            ?: "http://localhost:8080/api/v1/auth/oauth/callback"
 
-        val oauthHttpClient = HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = false
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
-            }
-            install(Logging) {
-                level = LogLevel.INFO
+        if (clientId != null && clientSecret != null && providerUrl != null) {
+            single<OAuthDataSource> {
+                val redirectUri = System.getenv("OAUTH_REDIRECT_URI")?.takeIf { it.isNotBlank() }
+                    ?: "http://localhost:8080/auth/oauth/callback"
+
+                val oauthHttpClient = HttpClient(CIO) {
+                    install(ContentNegotiation) {
+                        json(Json {
+                            prettyPrint = false
+                            isLenient = true
+                            ignoreUnknownKeys = true
+                        })
+                    }
+                    install(Logging) {
+                        level = LogLevel.INFO
+                    }
+                }
+
+                OAuthDataSourceImpl(
+                    httpClient = oauthHttpClient,
+                    oauthClientId = clientId,
+                    oauthClientSecret = clientSecret,
+                    oauthProviderUrl = providerUrl,
+                    oauthRedirectUri = redirectUri
+                )
             }
         }
-
-        OAuthDataSourceImpl(
-            httpClient = oauthHttpClient,
-            oauthClientId = clientId,
-            oauthClientSecret = clientSecret,
-            oauthProviderUrl = providerUrl,
-            oauthRedirectUri = redirectUri
-        )
     }
 
     single<JWTUtil> {
@@ -167,7 +177,7 @@ val dataModule = module {
             ?: throw IllegalStateException(
                 "JWT_SECRET environment variable is not set. Generate one with: openssl rand -base64 32"
             )
-        val expirySeconds = System.getenv("JWT_EXPIRY_SECONDS")?.toLongOrNull() ?: 3600
+        val expirySeconds = System.getenv("JWT_EXPIRY_SECONDS")?.toLongOrNull() ?: 86400
         val issuer = System.getenv("JWT_ISSUER")?.takeIf { it.isNotBlank() } ?: "moovie-backend"
 
         JWTUtil(
@@ -183,10 +193,13 @@ val dataModule = module {
 
     single<AuthRepository> {
         AuthRepositoryImpl(
-            oauthDataSource = get(),
+            oauthDataSource = getOrNull(),
             oauthStateDataSource = get(),
             userRepository = get(),
-            jwtUtil = get()
+            jwtUtil = get(),
+            userDatabaseDataSource = get(),
+            tokenBlocklistDataSource = get(),
+            userLocalDataSource = get()
         )
     }
 }

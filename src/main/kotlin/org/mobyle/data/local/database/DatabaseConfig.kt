@@ -34,11 +34,13 @@ object DatabaseConfig {
                 UsersTable,
                 MoviesTable,
                 UserMoviesTable,
+                UserFollowsTable,
                 UserListsTable,
                 UserListItemsTable,
                 TagsTable,
                 MovieTagsTable,
-                ArticlesTable
+                ArticlesTable,
+                TokenBlocklistTable
             )
         }
     }

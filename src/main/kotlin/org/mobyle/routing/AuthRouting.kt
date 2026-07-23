@@ -8,8 +8,13 @@ import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
 import org.mobyle.di.injection
 import org.mobyle.domain.model.AuthToken
+import org.mobyle.domain.model.LoginAuthTokenResponse
+import org.mobyle.domain.model.LoginRequest
 import org.mobyle.domain.model.OAuthCallbackRequest
 import org.mobyle.domain.model.User
+import org.mobyle.domain.model.UserProfile
+import org.mobyle.domain.usecase.auth.LoginUser
+import org.mobyle.domain.usecase.auth.LogoutUser
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
 import org.mobyle.domain.usecase.auth.RefreshToken
 import org.slf4j.LoggerFactory
@@ -19,8 +24,10 @@ private val log = LoggerFactory.getLogger("AuthRouting")
 fun Route.getAuthRouting() {
     val processOAuthCallback by injection<ProcessOAuthCallback>()
     val refreshTokenUseCase by injection<RefreshToken>()
+    val loginUser by injection<LoginUser>()
+    val logoutUser by injection<LogoutUser>()
 
-    post("/api/v1/auth/oauth/callback") {
+    post("/auth/oauth/callback") {
         try {
             val request = call.receive<OAuthCallbackRequest>()
 
@@ -72,7 +79,112 @@ fun Route.getAuthRouting() {
         }
     }
 
-    post("/api/v1/auth/refresh") {
+    post("/auth/login") {
+        try {
+            val request = call.receive<LoginRequest>()
+
+            if (request.email.isBlank() || request.password.isBlank()) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("invalid_request", "Email and password are required")
+                )
+                return@post
+            }
+
+            val result = loginUser(request.email, request.password)
+
+            if (result.isSuccess) {
+                val authToken = result.getOrThrow()
+                val user = authToken.user
+
+                val profile = UserProfile(
+                    photoUrl = user.avatar ?: "",
+                    username = user.username,
+                    bio = user.bio ?: ""
+                )
+
+                val response = LoginAuthTokenResponse(
+                    accessToken = authToken.accessToken,
+                    tokenType = authToken.tokenType,
+                    expiresIn = authToken.expiresIn,
+                    profile = profile
+                )
+
+                val statusCode = if (authToken.isNewUser) HttpStatusCode.Created else HttpStatusCode.OK
+                call.respond(statusCode, response)
+                log.info("Login successful for user ${user.id} (new=${authToken.isNewUser})")
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                val (statusCode, errorCode, message) = when (error) {
+                    "invalid_password_length" -> Triple(
+                        HttpStatusCode.BadRequest,
+                        "invalid_password_length",
+                        "Password must be between 8 and 72 characters"
+                    )
+                    "invalid_credentials" -> Triple(
+                        HttpStatusCode.Unauthorized,
+                        "invalid_credentials",
+                        "Invalid email or password"
+                    )
+                    "invalid_request" -> Triple(
+                        HttpStatusCode.BadRequest,
+                        "invalid_request",
+                        "Invalid request"
+                    )
+                    else -> Triple(
+                        HttpStatusCode.InternalServerError,
+                        "internal_error",
+                        "An internal error occurred"
+                    )
+                }
+
+                log.error("Login failed: $error")
+                call.respond(statusCode, ErrorResponse(errorCode, message))
+            }
+        } catch (e: Exception) {
+            log.error("Login request parsing error: ${e.message}")
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("invalid_request", "Invalid request body: ${e.message}")
+            )
+        }
+    }
+
+    post("/auth/logout") {
+        try {
+            val authHeader = call.request.headers["Authorization"]
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorResponse("missing_token", "Authorization header with Bearer token is required")
+                )
+                return@post
+            }
+
+            val token = authHeader.substring("Bearer ".length)
+            val result = logoutUser(token)
+
+            if (result.isSuccess) {
+                call.respond(HttpStatusCode.NoContent)
+                log.info("Logout successful")
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                log.error("Logout failed: $error")
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorResponse("invalid_token", "Token is invalid or already revoked")
+                )
+            }
+        } catch (e: Exception) {
+            log.error("Logout request error: ${e.message}")
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                ErrorResponse("internal_error", "An internal error occurred")
+            )
+        }
+    }
+
+    post("/auth/refresh") {
         try {
             val request = call.receive<RefreshTokenRequest>()
 
