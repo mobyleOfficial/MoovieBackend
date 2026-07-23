@@ -27,7 +27,7 @@ fun Route.getAuthRouting() {
     val loginUser by injection<LoginUser>()
     val logoutUser by injection<LogoutUser>()
 
-    post("/api/v1/auth/oauth/callback") {
+    post("/auth/oauth/callback") {
         try {
             val request = call.receive<OAuthCallbackRequest>()
 
@@ -79,7 +79,7 @@ fun Route.getAuthRouting() {
         }
     }
 
-    post("/api/v1/auth/login") {
+    post("/auth/login") {
         try {
             val request = call.receive<LoginRequest>()
 
@@ -145,12 +145,12 @@ fun Route.getAuthRouting() {
             log.error("Login request parsing error: ${e.message}")
             call.respond(
                 HttpStatusCode.BadRequest,
-                ErrorResponse("invalid_request", "Invalid request body")
+                ErrorResponse("invalid_request", "Invalid request body: ${e.message}")
             )
         }
     }
 
-    post("/api/v1/auth/logout") {
+    post("/auth/logout") {
         try {
             val authHeader = call.request.headers["Authorization"]
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -184,7 +184,7 @@ fun Route.getAuthRouting() {
         }
     }
 
-    post("/api/v1/auth/refresh") {
+    post("/auth/refresh") {
         try {
             val request = call.receive<RefreshTokenRequest>()
 

@@ -135,37 +135,37 @@ val dataModule = module {
         OAuthStateDataSourceImpl()
     }
 
-    single<OAuthDataSource?> {
+    run {
         val clientId = System.getenv("OAUTH_CLIENT_ID")?.takeIf { it.isNotBlank() }
         val clientSecret = System.getenv("OAUTH_CLIENT_SECRET")?.takeIf { it.isNotBlank() }
         val providerUrl = System.getenv("OAUTH_PROVIDER_URL")?.takeIf { it.isNotBlank() }
 
-        if (clientId == null || clientSecret == null || providerUrl == null) {
-            null
-        } else {
-            val redirectUri = System.getenv("OAUTH_REDIRECT_URI")?.takeIf { it.isNotBlank() }
-                ?: "http://localhost:8080/api/v1/auth/oauth/callback"
+        if (clientId != null && clientSecret != null && providerUrl != null) {
+            single<OAuthDataSource> {
+                val redirectUri = System.getenv("OAUTH_REDIRECT_URI")?.takeIf { it.isNotBlank() }
+                    ?: "http://localhost:8080/auth/oauth/callback"
 
-            val oauthHttpClient = HttpClient(CIO) {
-                install(ContentNegotiation) {
-                    json(Json {
-                        prettyPrint = false
-                        isLenient = true
-                        ignoreUnknownKeys = true
-                    })
+                val oauthHttpClient = HttpClient(CIO) {
+                    install(ContentNegotiation) {
+                        json(Json {
+                            prettyPrint = false
+                            isLenient = true
+                            ignoreUnknownKeys = true
+                        })
+                    }
+                    install(Logging) {
+                        level = LogLevel.INFO
+                    }
                 }
-                install(Logging) {
-                    level = LogLevel.INFO
-                }
+
+                OAuthDataSourceImpl(
+                    httpClient = oauthHttpClient,
+                    oauthClientId = clientId,
+                    oauthClientSecret = clientSecret,
+                    oauthProviderUrl = providerUrl,
+                    oauthRedirectUri = redirectUri
+                )
             }
-
-            OAuthDataSourceImpl(
-                httpClient = oauthHttpClient,
-                oauthClientId = clientId,
-                oauthClientSecret = clientSecret,
-                oauthProviderUrl = providerUrl,
-                oauthRedirectUri = redirectUri
-            )
         }
     }
 
