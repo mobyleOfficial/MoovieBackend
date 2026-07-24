@@ -17,6 +17,8 @@ import org.mobyle.domain.usecase.auth.LoginUser
 import org.mobyle.domain.usecase.auth.LogoutUser
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
 import org.mobyle.domain.usecase.auth.RefreshToken
+import org.mobyle.domain.usecase.auth.SignUpUser
+import org.mobyle.domain.model.SignUpRequest
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("AuthRouting")
@@ -25,6 +27,7 @@ fun Route.getAuthRouting() {
     val processOAuthCallback by injection<ProcessOAuthCallback>()
     val refreshTokenUseCase by injection<RefreshToken>()
     val loginUser by injection<LoginUser>()
+    val signUpUser by injection<SignUpUser>()
     val logoutUser by injection<LogoutUser>()
 
     post("/auth/oauth/callback") {
@@ -143,6 +146,81 @@ fun Route.getAuthRouting() {
             }
         } catch (e: Exception) {
             log.error("Login request parsing error: ${e.message}")
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("invalid_request", "Invalid request body: ${e.message}")
+            )
+        }
+    }
+
+    post("/auth/signup") {
+        try {
+            val request = call.receive<SignUpRequest>()
+
+            if (request.email.isBlank() || request.password.isBlank() || request.nickname.isBlank()) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("invalid_request", "Email, password, and nickname are required")
+                )
+                return@post
+            }
+
+            val result = signUpUser(request.email, request.password, request.nickname)
+
+            if (result.isSuccess) {
+                val authToken = result.getOrThrow()
+                val user = authToken.user
+
+                val profile = UserProfile(
+                    photoUrl = user.avatar ?: "",
+                    username = user.username,
+                    bio = user.bio ?: ""
+                )
+
+                val response = LoginAuthTokenResponse(
+                    accessToken = authToken.accessToken,
+                    tokenType = authToken.tokenType,
+                    expiresIn = authToken.expiresIn,
+                    profile = profile
+                )
+
+                call.respond(HttpStatusCode.Created, response)
+                log.info("Sign up successful for user ${user.id}")
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                val (statusCode, errorCode, message) = when (error) {
+                    "invalid_password_length" -> Triple(
+                        HttpStatusCode.BadRequest,
+                        "invalid_password_length",
+                        "Password must be between 8 and 72 characters"
+                    )
+                    "invalid_nickname" -> Triple(
+                        HttpStatusCode.BadRequest,
+                        "invalid_nickname",
+                        "Nickname must be between 1 and 30 characters"
+                    )
+                    "email_already_exists" -> Triple(
+                        HttpStatusCode.Conflict,
+                        "email_already_exists",
+                        "An account with this email already exists"
+                    )
+                    "nickname_already_exists" -> Triple(
+                        HttpStatusCode.Conflict,
+                        "nickname_already_exists",
+                        "This nickname is already taken"
+                    )
+                    else -> Triple(
+                        HttpStatusCode.InternalServerError,
+                        "internal_error",
+                        "An internal error occurred"
+                    )
+                }
+
+                log.error("Sign up failed: $error")
+                call.respond(statusCode, ErrorResponse(errorCode, message))
+            }
+        } catch (e: Exception) {
+            log.error("Sign up request parsing error: ${e.message}")
             call.respond(
                 HttpStatusCode.BadRequest,
                 ErrorResponse("invalid_request", "Invalid request body: ${e.message}")

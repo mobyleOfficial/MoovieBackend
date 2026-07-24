@@ -131,75 +131,105 @@ class AuthRepositoryImpl(
 
             val existingUser = userDatabaseDataSource.findByEmail(normalizedEmail)
 
-            if (existingUser != null) {
-                // Existing user — verify password
-                val storedHash = existingUser.passwordHash
-                if (storedHash == null) {
-                    // OAuth-only user trying to login with password — treat as wrong password
-                    BCrypt.verifyer().verify(trimmedPassword.toCharArray(), DUMMY_HASH)
-                    return Result.failure(Exception("invalid_credentials"))
-                }
-
-                val verified = BCrypt.verifyer().verify(trimmedPassword.toCharArray(), storedHash)
-                if (!verified.verified) {
-                    return Result.failure(Exception("invalid_credentials"))
-                }
-
-                // Password correct — generate JWT
-                val accessToken = jwtUtil.generateToken(existingUser)
-
-                val authToken = AuthToken(
-                    accessToken = accessToken,
-                    tokenType = "Bearer",
-                    expiresIn = jwtUtil.jwtExpirySeconds,
-                    user = existingUser.copy(passwordHash = null), // never leak hash
-                    isNewUser = false
-                )
-
-                // Update L1 cache
-                userLocalDataSource.saveUser(existingUser.copy(passwordHash = null))
-
-                Result.success(authToken)
-            } else {
+            if (existingUser == null) {
                 // Timing attack prevention: run BCrypt verify against dummy hash
                 BCrypt.verifyer().verify(trimmedPassword.toCharArray(), DUMMY_HASH)
-
-                // New user — hash password and create
-                val passwordHash = BCrypt.withDefaults().hashToString(BCRYPT_COST, trimmedPassword.toCharArray())
-                val userId = UUID.randomUUID().toString()
-                val username = generateUsername(normalizedEmail)
-                val now = java.time.Instant.now().toString()
-
-                val newUser = User(
-                    id = userId,
-                    email = normalizedEmail,
-                    username = username,
-                    avatar = null,
-                    createdAt = now,
-                    passwordHash = passwordHash
-                )
-
-                // Save to database
-                userDatabaseDataSource.save(newUser)
-
-                // Save to L1 cache (without password hash)
-                userLocalDataSource.saveUser(newUser.copy(passwordHash = null))
-
-                // Generate JWT
-                val accessToken = jwtUtil.generateToken(newUser)
-
-                val authToken = AuthToken(
-                    accessToken = accessToken,
-                    tokenType = "Bearer",
-                    expiresIn = jwtUtil.jwtExpirySeconds,
-                    user = newUser.copy(passwordHash = null), // never leak hash
-                    isNewUser = true
-                )
-
-                Result.success(authToken)
+                return Result.failure(Exception("invalid_credentials"))
             }
+
+            // Existing user — verify password
+            val storedHash = existingUser.passwordHash
+            if (storedHash == null) {
+                // OAuth-only user trying to login with password — treat as wrong password
+                BCrypt.verifyer().verify(trimmedPassword.toCharArray(), DUMMY_HASH)
+                return Result.failure(Exception("invalid_credentials"))
+            }
+
+            val verified = BCrypt.verifyer().verify(trimmedPassword.toCharArray(), storedHash)
+            if (!verified.verified) {
+                return Result.failure(Exception("invalid_credentials"))
+            }
+
+            // Password correct — generate JWT
+            val accessToken = jwtUtil.generateToken(existingUser)
+
+            val authToken = AuthToken(
+                accessToken = accessToken,
+                tokenType = "Bearer",
+                expiresIn = jwtUtil.jwtExpirySeconds,
+                user = existingUser.copy(passwordHash = null),
+                isNewUser = false
+            )
+
+            // Update L1 cache
+            userLocalDataSource.saveUser(existingUser.copy(passwordHash = null))
+
+            Result.success(authToken)
         } catch (e: Exception) {
             log.error("Login failed: ${e.message}")
+            Result.failure(Exception("internal_error"))
+        }
+    }
+
+    override suspend fun signUpUser(email: String, password: String, nickname: String): Result<AuthToken> {
+        return try {
+            val normalizedEmail = email.trim().lowercase()
+            val trimmedPassword = password.trim()
+            val trimmedNickname = nickname.trim()
+
+            if (normalizedEmail.isBlank()) {
+                return Result.failure(Exception("invalid_request"))
+            }
+
+            if (trimmedPassword.length < 8 || trimmedPassword.length > 72) {
+                return Result.failure(Exception("invalid_password_length"))
+            }
+
+            if (trimmedNickname.isBlank() || trimmedNickname.length > 30) {
+                return Result.failure(Exception("invalid_nickname"))
+            }
+
+            // Check if email is already taken
+            val existingUser = userDatabaseDataSource.findByEmail(normalizedEmail)
+            if (existingUser != null) {
+                return Result.failure(Exception("email_already_exists"))
+            }
+
+            // Check if nickname is already taken
+            val existingUsernames = userDatabaseDataSource.findByUsername(trimmedNickname)
+            if (existingUsernames.contains(trimmedNickname)) {
+                return Result.failure(Exception("nickname_already_exists"))
+            }
+
+            val passwordHash = BCrypt.withDefaults().hashToString(BCRYPT_COST, trimmedPassword.toCharArray())
+            val userId = UUID.randomUUID().toString()
+            val now = java.time.Instant.now().toString()
+
+            val newUser = User(
+                id = userId,
+                email = normalizedEmail,
+                username = trimmedNickname,
+                avatar = null,
+                createdAt = now,
+                passwordHash = passwordHash
+            )
+
+            userDatabaseDataSource.save(newUser)
+            userLocalDataSource.saveUser(newUser.copy(passwordHash = null))
+
+            val accessToken = jwtUtil.generateToken(newUser)
+
+            val authToken = AuthToken(
+                accessToken = accessToken,
+                tokenType = "Bearer",
+                expiresIn = jwtUtil.jwtExpirySeconds,
+                user = newUser.copy(passwordHash = null),
+                isNewUser = true
+            )
+
+            Result.success(authToken)
+        } catch (e: Exception) {
+            log.error("Sign up failed: ${e.message}")
             Result.failure(Exception("internal_error"))
         }
     }
