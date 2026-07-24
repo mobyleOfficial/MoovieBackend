@@ -250,7 +250,7 @@ class AuthRepositoryImpl(
         } catch (e: Exception) {
             println("[SIGNUP] ERROR: ${e.javaClass.simpleName}: ${e.message}")
             e.printStackTrace()
-            Result.failure(Exception("internal_error"))
+            Result.failure(Exception("internal_error: ${e.javaClass.simpleName}: ${e.message}"))
         }
     }
 
