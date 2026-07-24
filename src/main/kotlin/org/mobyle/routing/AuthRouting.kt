@@ -4,6 +4,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.serialization.Serializable
 import org.mobyle.di.injection
@@ -18,6 +19,7 @@ import org.mobyle.domain.usecase.auth.LogoutUser
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
 import org.mobyle.domain.usecase.auth.RefreshToken
 import org.mobyle.domain.usecase.auth.SignUpUser
+import org.mobyle.domain.usecase.auth.CheckNicknameAvailability
 import org.mobyle.domain.model.SignUpRequest
 import org.slf4j.LoggerFactory
 
@@ -29,6 +31,7 @@ fun Route.getAuthRouting() {
     val loginUser by injection<LoginUser>()
     val signUpUser by injection<SignUpUser>()
     val logoutUser by injection<LogoutUser>()
+    val checkNicknameAvailability by injection<CheckNicknameAvailability>()
 
     post("/auth/oauth/callback") {
         try {
@@ -228,6 +231,42 @@ fun Route.getAuthRouting() {
         }
     }
 
+    get("/auth/check-nickname") {
+        try {
+            val nickname = call.request.queryParameters["nickname"]
+
+            if (nickname.isNullOrBlank()) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("invalid_request", "Query parameter 'nickname' is required")
+                )
+                return@get
+            }
+
+            val result = checkNicknameAvailability(nickname)
+
+            if (result.isSuccess) {
+                val available = result.getOrThrow()
+                call.respond(
+                    HttpStatusCode.OK,
+                    NicknameAvailabilityResponse(nickname = nickname.trim(), available = available)
+                )
+            } else {
+                log.error("Nickname check failed: ${result.exceptionOrNull()?.message}")
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse("internal_error", "An internal error occurred")
+                )
+            }
+        } catch (e: Exception) {
+            log.error("Nickname check request error: ${e.message}")
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                ErrorResponse("internal_error", "An internal error occurred")
+            )
+        }
+    }
+
     post("/auth/logout") {
         try {
             val authHeader = call.request.headers["Authorization"]
@@ -323,6 +362,12 @@ data class RefreshTokenResponse(
 @Serializable
 data class RefreshTokenRequest(
     val refreshToken: String
+)
+
+@Serializable
+data class NicknameAvailabilityResponse(
+    val nickname: String,
+    val available: Boolean
 )
 
 @Serializable

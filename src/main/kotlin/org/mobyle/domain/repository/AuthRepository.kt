@@ -13,6 +13,7 @@ interface AuthRepository {
     suspend fun loginUser(email: String, password: String): Result<AuthToken>
     suspend fun signUpUser(email: String, password: String, nickname: String): Result<AuthToken>
     suspend fun logoutUser(token: String): Result<Unit>
+    suspend fun checkNicknameAvailability(nickname: String): Result<Boolean>
 }
 
 interface UserRepository {

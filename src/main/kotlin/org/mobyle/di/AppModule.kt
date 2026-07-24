@@ -12,6 +12,7 @@ import org.mobyle.domain.usecase.auth.LogoutUser
 import org.mobyle.domain.usecase.auth.ProcessOAuthCallback
 import org.mobyle.domain.usecase.auth.RefreshToken
 import org.mobyle.domain.usecase.auth.SignUpUser
+import org.mobyle.domain.usecase.auth.CheckNicknameAvailability
 import org.mobyle.domain.usecase.auth.ValidateToken
 import org.mobyle.domain.usecase.movies.*
 import org.mobyle.domain.usecase.profile.GetPublicProfile
@@ -66,4 +67,5 @@ val appModule = module {
     factory { LoginUser(authRepository = get<AuthRepository>()) }
     factory { SignUpUser(authRepository = get<AuthRepository>()) }
     factory { LogoutUser(authRepository = get<AuthRepository>()) }
+    factory { CheckNicknameAvailability(authRepository = get<AuthRepository>()) }
 }

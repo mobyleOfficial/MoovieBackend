@@ -234,6 +234,22 @@ class AuthRepositoryImpl(
         }
     }
 
+    override suspend fun checkNicknameAvailability(nickname: String): Result<Boolean> {
+        return try {
+            val trimmed = nickname.trim()
+
+            if (trimmed.isBlank() || trimmed.length > 30) {
+                return Result.success(false)
+            }
+
+            val existing = userDatabaseDataSource.findByUsername(trimmed)
+            Result.success(!existing.contains(trimmed))
+        } catch (e: Exception) {
+            log.error("Nickname availability check failed: ${e.message}")
+            Result.failure(Exception("internal_error"))
+        }
+    }
+
     override suspend fun logoutUser(token: String): Result<Unit> {
         return try {
             val claimsResult = jwtUtil.validateToken(token)
