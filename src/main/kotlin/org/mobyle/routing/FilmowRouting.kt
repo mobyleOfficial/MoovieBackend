@@ -6,13 +6,36 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import org.mobyle.di.injection
+import org.mobyle.data.remote.auth.authenticateJWT
 import org.mobyle.data.remote.filmow.FilmowScrapeRequest
+import org.mobyle.data.local.user.UserDatabaseDataSource
+import org.mobyle.domain.usecase.auth.ValidateToken
+import org.mobyle.domain.usecase.filmow.ImportFilmowData
 import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
+import org.slf4j.LoggerFactory
+
+private val log = LoggerFactory.getLogger("FilmowRouting")
 
 fun Route.getFilmowRouting() {
     val scrapeFilmowProfile by injection<ScrapeFilmowProfile>()
+    val importFilmowData by injection<ImportFilmowData>()
+    val validateToken by injection<ValidateToken>()
+    val userDatabaseDataSource by injection<UserDatabaseDataSource>()
 
     post("/filmow/scrape") {
+        val principal = call.authenticateJWT(validateToken) ?: return@post
+        val userId = principal.claims.userId
+        val email = principal.claims.email
+
+        val user = userDatabaseDataSource.findByEmail(email)
+        if (user == null) {
+            call.respond(
+                HttpStatusCode.NotFound,
+                mapOf("error" to "User not found")
+            )
+            return@post
+        }
+
         val request = try {
             call.receive<FilmowScrapeRequest>()
         } catch (e: Exception) {
@@ -33,6 +56,13 @@ fun Route.getFilmowRouting() {
 
         try {
             val profile = scrapeFilmowProfile(request.cookies, request.username)
+
+            try {
+                importFilmowData(user.id, profile)
+            } catch (e: Exception) {
+                log.error("Failed to import Filmow data for user $userId: ${e.message}", e)
+            }
+
             call.respond(profile)
         } catch (e: Exception) {
             call.respond(

@@ -6,10 +6,14 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.upsert
 import org.mobyle.data.local.database.MoviesTable
 import org.mobyle.data.local.database.UserFollowsTable
+import org.mobyle.data.local.database.UserListItemsTable
+import org.mobyle.data.local.database.UserListsTable
 import org.mobyle.data.local.database.UserMoviesTable
 import org.mobyle.data.local.database.UsersTable
+import org.mobyle.domain.model.FilmowList
 import org.mobyle.domain.model.Movie
 import org.mobyle.domain.model.User
 
@@ -21,6 +25,8 @@ interface UserDatabaseDataSource {
     fun countFollowing(userExternalId: String): Int
     fun countFollowers(userExternalId: String): Int
     fun getRecentWatchedMovies(userExternalId: String, limit: Int): List<Movie>
+    fun importMovies(userExternalId: String, movies: List<Movie>, status: String, isFavorite: Boolean = false)
+    fun importLists(userExternalId: String, lists: List<FilmowList>)
 }
 
 class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
@@ -131,6 +137,85 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                         releaseDate = row[MoviesTable.year]?.toString()
                     )
                 }
+        }
+    }
+
+    private fun ensureMovie(movie: Movie): Long {
+        val existing = MoviesTable.selectAll()
+            .where { MoviesTable.tmdbId eq movie.id }
+            .firstOrNull()
+
+        if (existing != null) return existing[MoviesTable.id].value
+
+        return MoviesTable.insertAndGetId {
+            it[tmdbId] = movie.id
+            it[title] = movie.title
+            it[originalTitle] = movie.originalTitle
+            it[year] = movie.releaseDate?.take(4)?.toIntOrNull()
+            it[posterPath] = movie.posterPath
+        }.value
+    }
+
+    override fun importMovies(
+        userExternalId: String,
+        movies: List<Movie>,
+        status: String,
+        isFavorite: Boolean
+    ) {
+        transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction
+            val now = Clock.System.now()
+
+            for (movie in movies) {
+                if (movie.id <= 0) continue
+                val movieDbId = ensureMovie(movie)
+
+                UserMoviesTable.upsert(
+                    UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource
+                ) {
+                    it[userId] = userDbId
+                    it[movieId] = movieDbId
+                    it[UserMoviesTable.status] = status
+                    it[rating] = movie.voteAverage.takeIf { v -> v > 0.0 }?.toFloat()
+                    it[UserMoviesTable.isFavorite] = isFavorite
+                    it[importSource] = "filmow"
+                    it[importedAt] = now
+                    it[createdAt] = now
+                    it[updatedAt] = now
+                    if (status == "watched") {
+                        it[watchedAt] = now
+                    }
+                }
+            }
+        }
+    }
+
+    override fun importLists(userExternalId: String, lists: List<FilmowList>) {
+        transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction
+            val now = Clock.System.now()
+
+            for (filmowList in lists) {
+                val listId = UserListsTable.insertAndGetId {
+                    it[userId] = userDbId
+                    it[name] = filmowList.title
+                    it[description] = filmowList.description
+                    it[isPublic] = true
+                    it[createdAt] = now
+                }
+
+                filmowList.movies.forEachIndexed { index, movie ->
+                    if (movie.id <= 0) return@forEachIndexed
+                    val movieDbId = ensureMovie(movie)
+
+                    UserListItemsTable.upsert(UserListItemsTable.listId, UserListItemsTable.movieId) {
+                        it[UserListItemsTable.listId] = listId
+                        it[UserListItemsTable.movieId] = movieDbId
+                        it[position] = index
+                        it[addedAt] = now
+                    }
+                }
+            }
         }
     }
 }

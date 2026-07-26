@@ -214,8 +214,8 @@ fun Route.getAuthRouting() {
                     )
                     else -> Triple(
                         HttpStatusCode.InternalServerError,
-                        "internal_error",
-                        "An internal error occurred"
+                        error,
+                        error
                     )
                 }
 
@@ -225,8 +225,8 @@ fun Route.getAuthRouting() {
         } catch (e: Exception) {
             log.error("Sign up request parsing error: ${e.message}")
             call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("invalid_request", "Invalid request body: ${e.message}")
+                HttpStatusCode.InternalServerError,
+                ErrorResponse("exception", "${e.javaClass.simpleName}: ${e.message}")
             )
         }
     }

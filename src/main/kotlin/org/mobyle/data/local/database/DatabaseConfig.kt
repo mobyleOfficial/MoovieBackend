@@ -30,7 +30,7 @@ object DatabaseConfig {
         Database.connect(HikariDataSource(config))
 
         transaction {
-            SchemaUtils.create(
+            SchemaUtils.createMissingTablesAndColumns(
                 UsersTable,
                 MoviesTable,
                 UserMoviesTable,

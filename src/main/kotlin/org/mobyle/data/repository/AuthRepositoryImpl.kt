@@ -173,34 +173,46 @@ class AuthRepositoryImpl(
 
     override suspend fun signUpUser(email: String, password: String, nickname: String): Result<AuthToken> {
         return try {
+            println("[SIGNUP] Starting sign up for email=$email, nickname=$nickname")
+
             val normalizedEmail = email.trim().lowercase()
             val trimmedPassword = password.trim()
             val trimmedNickname = nickname.trim()
 
             if (normalizedEmail.isBlank()) {
+                println("[SIGNUP] Invalid request: blank email")
                 return Result.failure(Exception("invalid_request"))
             }
 
             if (trimmedPassword.length < 8 || trimmedPassword.length > 72) {
+                println("[SIGNUP] Invalid password length: ${trimmedPassword.length}")
                 return Result.failure(Exception("invalid_password_length"))
             }
 
             if (trimmedNickname.isBlank() || trimmedNickname.length > 30) {
+                println("[SIGNUP] Invalid nickname: blank or too long (${trimmedNickname.length})")
                 return Result.failure(Exception("invalid_nickname"))
             }
 
             // Check if email is already taken
+            println("[SIGNUP] Checking email availability...")
             val existingUser = userDatabaseDataSource.findByEmail(normalizedEmail)
             if (existingUser != null) {
+                println("[SIGNUP] Email already exists")
                 return Result.failure(Exception("email_already_exists"))
             }
+            println("[SIGNUP] Email available")
 
             // Check if nickname is already taken
+            println("[SIGNUP] Checking nickname availability...")
             val existingUsernames = userDatabaseDataSource.findByUsername(trimmedNickname)
             if (existingUsernames.contains(trimmedNickname)) {
+                println("[SIGNUP] Nickname already exists")
                 return Result.failure(Exception("nickname_already_exists"))
             }
+            println("[SIGNUP] Nickname available")
 
+            println("[SIGNUP] Hashing password...")
             val passwordHash = BCrypt.withDefaults().hashToString(BCRYPT_COST, trimmedPassword.toCharArray())
             val userId = UUID.randomUUID().toString()
             val now = java.time.Instant.now().toString()
@@ -214,10 +226,16 @@ class AuthRepositoryImpl(
                 passwordHash = passwordHash
             )
 
+            println("[SIGNUP] Saving user to database...")
             userDatabaseDataSource.save(newUser)
-            userLocalDataSource.saveUser(newUser.copy(passwordHash = null))
+            println("[SIGNUP] User saved to database")
 
+            userLocalDataSource.saveUser(newUser.copy(passwordHash = null))
+            println("[SIGNUP] User saved to L1 cache")
+
+            println("[SIGNUP] Generating JWT...")
             val accessToken = jwtUtil.generateToken(newUser)
+            println("[SIGNUP] JWT generated")
 
             val authToken = AuthToken(
                 accessToken = accessToken,
@@ -227,10 +245,12 @@ class AuthRepositoryImpl(
                 isNewUser = true
             )
 
+            println("[SIGNUP] Sign up successful for userId=$userId")
             Result.success(authToken)
         } catch (e: Exception) {
-            log.error("Sign up failed: ${e.message}")
-            Result.failure(Exception("internal_error"))
+            println("[SIGNUP] ERROR: ${e.javaClass.simpleName}: ${e.message}")
+            e.printStackTrace()
+            Result.failure(Exception("internal_error: ${e.javaClass.simpleName}: ${e.message}"))
         }
     }
 
