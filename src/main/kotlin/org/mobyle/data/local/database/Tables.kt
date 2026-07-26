@@ -39,6 +39,7 @@ object UserMoviesTable : LongIdTable("user_movies") {
     val review = text("review").nullable()
     val rewatches = integer("rewatches").default(0)
     val watchedAt = timestamp("watched_at").nullable()
+    val isFavorite = bool("is_favorite").default(false)
     val importSource = varchar("source", 50) // filmow, letterboxd, manual
     val importedAt = timestamp("imported_at").nullable()
     val createdAt = timestamp("created_at")
