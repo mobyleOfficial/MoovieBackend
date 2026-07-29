@@ -154,9 +154,17 @@ def parse_movie_item_from_list(item, status):
     rating_el = item.select_one(".star-rating[title]") or item.select_one("span.star-rating-small[title]")
     user_rating = None
     if rating_el:
-        rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", rating_el.get("title", ""))
+        rating_match = re.search(r"Nota:\s*([0-5](?:[.,]\d)?)", rating_el.get("title", ""))
         if rating_match:
             user_rating = float(rating_match.group(1).replace(",", "."))
+
+    vote_average = 0.0
+    avg_el = item.select_one("span.movie-rating-average")
+    if avg_el:
+        try:
+            vote_average = float(avg_el.get_text(strip=True))
+        except ValueError:
+            pass
 
     return {
         "title": title,
@@ -164,7 +172,7 @@ def parse_movie_item_from_list(item, status):
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": 0.0,
+        "voteAverage": vote_average,
         "userRating": user_rating,
         "status": status,
     }
