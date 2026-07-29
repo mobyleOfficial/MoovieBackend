@@ -36,6 +36,7 @@ fun Route.getProfileRouting() {
         }
 
         val profile = UserProfile(
+            id = user.id,
             photoUrl = user.avatar ?: "",
             username = user.username,
             bio = user.bio ?: "",

@@ -15,7 +15,11 @@ import org.mobyle.data.local.database.UserMoviesTable
 import org.mobyle.data.local.database.UsersTable
 import org.mobyle.domain.model.FilmowList
 import org.mobyle.domain.model.Movie
+import org.mobyle.domain.model.MovieList
+import org.mobyle.domain.model.MovieListDetail
 import org.mobyle.domain.model.User
+import org.mobyle.model.MovieListing
+import org.mobyle.model.MovieListListing
 
 interface UserDatabaseDataSource {
     fun findByEmail(email: String): User?
@@ -25,6 +29,10 @@ interface UserDatabaseDataSource {
     fun countFollowing(userExternalId: String): Int
     fun countFollowers(userExternalId: String): Int
     fun getRecentWatchedMovies(userExternalId: String, limit: Int): List<Movie>
+    fun getFavoriteMovies(userExternalId: String, page: Int, pageSize: Int = 20): MovieListing
+    fun getWatchlistMovies(userExternalId: String, page: Int, pageSize: Int = 20): MovieListing
+    fun getUserLists(userExternalId: String, page: Int, pageSize: Int = 20): MovieListListing
+    fun getListDetail(listId: Long, page: Int, pageSize: Int = 20): MovieListDetail
     fun importMovies(userExternalId: String, movies: List<Movie>, status: String, isFavorite: Boolean = false)
     fun importLists(userExternalId: String, lists: List<FilmowList>)
 }
@@ -128,6 +136,142 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                 }
                 .orderBy(UserMoviesTable.watchedAt, SortOrder.DESC)
                 .limit(limit)
+                .map { row -> rowToMovie(row) }
+        }
+    }
+
+    override fun getFavoriteMovies(userExternalId: String, page: Int, pageSize: Int): MovieListing {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId)
+                ?: return@transaction MovieListing(0, 0, emptyList())
+
+            val totalResults = UserMoviesTable.selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.isFavorite eq true)
+                }
+                .count().toInt()
+
+            val movies = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.isFavorite eq true)
+                }
+                .orderBy(UserMoviesTable.updatedAt, SortOrder.DESC)
+                .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
+                .map { row -> rowToMovie(row) }
+
+            MovieListing(
+                totalPages = (totalResults + pageSize - 1) / pageSize,
+                totalResults = totalResults,
+                movies = movies
+            )
+        }
+    }
+
+    override fun getWatchlistMovies(userExternalId: String, page: Int, pageSize: Int): MovieListing {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId)
+                ?: return@transaction MovieListing(0, 0, emptyList())
+
+            val totalResults = UserMoviesTable.selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.status eq "want_to_watch")
+                }
+                .count().toInt()
+
+            val movies = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.status eq "want_to_watch")
+                }
+                .orderBy(UserMoviesTable.updatedAt, SortOrder.DESC)
+                .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
+                .map { row -> rowToMovie(row) }
+
+            MovieListing(
+                totalPages = (totalResults + pageSize - 1) / pageSize,
+                totalResults = totalResults,
+                movies = movies
+            )
+        }
+    }
+
+    override fun getUserLists(userExternalId: String, page: Int, pageSize: Int): MovieListListing {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId)
+                ?: return@transaction MovieListListing(0, 0, emptyList())
+
+            val username = UsersTable.selectAll()
+                .where { UsersTable.externalId eq userExternalId }
+                .firstOrNull()?.get(UsersTable.username) ?: ""
+
+            val totalResults = UserListsTable.selectAll()
+                .where { UserListsTable.userId eq userDbId }
+                .count().toInt()
+
+            val lists = UserListsTable.selectAll()
+                .where { UserListsTable.userId eq userDbId }
+                .orderBy(UserListsTable.createdAt, SortOrder.DESC)
+                .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
+                .map { row ->
+                    val listDbId = row[UserListsTable.id].value
+
+                    val movieCount = UserListItemsTable.selectAll()
+                        .where { UserListItemsTable.listId eq listDbId }
+                        .count().toInt()
+
+                    val posterPaths = (UserListItemsTable innerJoin MoviesTable)
+                        .selectAll()
+                        .where { UserListItemsTable.listId eq listDbId }
+                        .orderBy(UserListItemsTable.position, SortOrder.ASC)
+                        .limit(4)
+                        .mapNotNull { it[MoviesTable.posterPath] }
+
+                    MovieList(
+                        id = listDbId.toInt(),
+                        name = row[UserListsTable.name],
+                        creator = username,
+                        description = row[UserListsTable.description],
+                        movieCount = movieCount,
+                        posterPaths = posterPaths
+                    )
+                }
+
+            MovieListListing(
+                totalPages = (totalResults + pageSize - 1) / pageSize,
+                totalResults = totalResults,
+                lists = lists
+            )
+        }
+    }
+
+    override fun getListDetail(listId: Long, page: Int, pageSize: Int): MovieListDetail {
+        return transaction {
+            val listRow = UserListsTable.selectAll()
+                .where { UserListsTable.id eq listId }
+                .firstOrNull()
+                ?: return@transaction MovieListDetail(
+                    id = listId.toInt(), name = "", creator = ""
+                )
+
+            val userDbId = listRow[UserListsTable.userId].value
+            val username = UsersTable.selectAll()
+                .where { UsersTable.id eq userDbId }
+                .firstOrNull()?.get(UsersTable.username) ?: ""
+
+            val totalMovies = UserListItemsTable.selectAll()
+                .where { UserListItemsTable.listId eq listId }
+                .count().toInt()
+
+            val movies = (UserListItemsTable innerJoin MoviesTable)
+                .selectAll()
+                .where { UserListItemsTable.listId eq listId }
+                .orderBy(UserListItemsTable.position, SortOrder.ASC)
+                .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
                 .map { row ->
                     Movie(
                         id = row[MoviesTable.tmdbId],
@@ -137,7 +281,29 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                         releaseDate = row[MoviesTable.year]?.toString()
                     )
                 }
+
+            MovieListDetail(
+                id = listId.toInt(),
+                name = listRow[UserListsTable.name],
+                creator = username,
+                description = listRow[UserListsTable.description],
+                movies = movies,
+                totalMovies = totalMovies,
+                totalPages = (totalMovies + pageSize - 1) / pageSize
+            )
         }
+    }
+
+    private fun rowToMovie(row: org.jetbrains.exposed.sql.ResultRow): Movie {
+        return Movie(
+            id = row[MoviesTable.tmdbId],
+            title = row[MoviesTable.title],
+            originalTitle = row[MoviesTable.originalTitle],
+            posterPath = row[MoviesTable.posterPath],
+            voteAverage = 0.0,
+            userRating = row[UserMoviesTable.rating]?.toDouble(),
+            releaseDate = row[MoviesTable.year]?.toString()
+        )
     }
 
     private fun ensureMovie(movie: Movie): Long {
