@@ -20,6 +20,13 @@ RUN ./gradlew buildFatJar --no-daemon
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# Install Python and pip for the Filmow scraper
+RUN apk add --no-cache python3 py3-pip
+
+# Copy scraper scripts and install dependencies
+COPY scripts scripts
+RUN pip3 install --no-cache-dir --break-system-packages -r scripts/requirements.txt
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup

@@ -169,7 +169,14 @@ class FilmowDataSourceImpl : FilmowDataSource {
         val venvFile = File(venvPath)
         if (venvFile.exists()) return venvFile.absolutePath
 
-        return "python"
+        // Alpine Linux has python3, not python
+        for (candidate in listOf("python3", "python")) {
+            try {
+                val check = ProcessBuilder(candidate, "--version").start()
+                if (check.waitFor() == 0) return candidate
+            } catch (_: Exception) { }
+        }
+        return "python3"
     }
 
     private fun resolveScriptPath(): File {
