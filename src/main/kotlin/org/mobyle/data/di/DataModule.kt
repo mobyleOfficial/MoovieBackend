@@ -114,7 +114,7 @@ val dataModule = module {
     }
 
     single<FilmowDataSource> {
-        FilmowDataSourceImpl(tmdbHttpClient = get())
+        FilmowDataSourceImpl()
     }
 
     single<FilmowRepository> {

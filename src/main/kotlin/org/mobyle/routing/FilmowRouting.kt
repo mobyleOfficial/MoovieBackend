@@ -55,14 +55,18 @@ fun Route.getFilmowRouting() {
         }
 
         try {
+            log.info("[FILMOW] Starting scrape for Filmow user @${request.username} (moovie user $userId)")
             val profile = scrapeFilmowProfile(request.cookies, request.username)
+            log.info("[FILMOW] Scrape done. Starting import to DB...")
 
             try {
                 importFilmowData(user.id, profile)
+                log.info("[FILMOW] Import done.")
             } catch (e: Exception) {
-                log.error("Failed to import Filmow data for user $userId: ${e.message}", e)
+                log.error("[FILMOW] Import failed for user $userId: ${e.message}", e)
             }
 
+            log.info("[FILMOW] Sending response...")
             call.respond(profile)
         } catch (e: Exception) {
             call.respond(

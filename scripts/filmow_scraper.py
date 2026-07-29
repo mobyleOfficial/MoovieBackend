@@ -91,7 +91,7 @@ def scrape_profile_page(session, username):
         # Recently watched from .last-seen section
         last_seen = soup.select_one(".last-seen")
         if last_seen:
-            items = last_seen.select(".recent-movies-list > div.movie_list_item")
+            items = last_seen.select(".recent-movies-list div.movie_list_item")
             for item in items:
                 mi = item.select_one("div.movie-item")
                 if not mi:
@@ -104,9 +104,9 @@ def scrape_profile_page(session, username):
                 # Override user rating from stars above the movie-item
                 stars = item.select_one(".user-extras__item[title]")
                 if stars:
-                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", stars.get("title", ""))
+                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]\d)?)", stars.get("title", ""))
                     if rating_match:
-                        parsed["userRating"] = int(float(rating_match.group(1).replace(",", ".")))
+                        parsed["userRating"] = float(rating_match.group(1).replace(",", "."))
 
                 recent.append(parsed)
 
@@ -134,6 +134,8 @@ def parse_movie_item_from_list(item, status):
     if not link:
         return None
 
+    filmow_id = item.get("data-movie-pk", "") or link.get("data-movie-pk", "")
+
     img = item.select_one("img.lazyload") or item.select_one("img")
     alt_text = img.get("alt", "") if img else ""
     title = link.get("title", "").strip() or alt_text or link.get_text(strip=True)
@@ -154,17 +156,26 @@ def parse_movie_item_from_list(item, status):
     rating_el = item.select_one(".star-rating[title]") or item.select_one("span.star-rating-small[title]")
     user_rating = None
     if rating_el:
-        rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", rating_el.get("title", ""))
+        rating_match = re.search(r"Nota:\s*([0-5](?:[.,]\d)?)", rating_el.get("title", ""))
         if rating_match:
-            user_rating = int(float(rating_match.group(1).replace(",", ".")))
+            user_rating = float(rating_match.group(1).replace(",", "."))
+
+    vote_average = 0.0
+    avg_el = item.select_one("span.movie-rating-average")
+    if avg_el:
+        try:
+            vote_average = float(avg_el.get_text(strip=True))
+        except ValueError:
+            pass
 
     return {
+        "filmowId": filmow_id or None,
         "title": title,
         "localTitle": local_title if original_title else None,
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": 0.0,
+        "voteAverage": vote_average,
         "userRating": user_rating,
         "status": status,
     }
@@ -200,7 +211,7 @@ def parse_movie_item_from_div(item, status):
     user_rating = None
     if ur_el:
         try:
-            user_rating = int(re.sub(r"[^0-9]", "", ur_el.get_text()))
+            user_rating = float(re.sub(r"[^0-9.]", "", ur_el.get_text()))
         except ValueError:
             pass
 
@@ -208,6 +219,7 @@ def parse_movie_item_from_div(item, status):
     year = year_match.group(1) if year_match else None
 
     return {
+        "filmowId": a.get("data-movie-pk", "") or None,
         "title": title,
         "localTitle": local_title if original_title else None,
         "originalTitle": original_title,
@@ -329,7 +341,6 @@ def scrape_list_detail(session, href, errors):
 
             parsed = parse_movie_item_from_div(item, "Lista")
             if parsed:
-                parsed["filmowId"] = a.get("data-movie-pk", "")
                 movies.append(parsed)
 
         log(f"    page {page_num}/{total_pages} -> {len(items)} items")

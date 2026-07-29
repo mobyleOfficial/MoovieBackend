@@ -104,6 +104,7 @@ fun Route.getAuthRouting() {
                 val user = authToken.user
 
                 val profile = UserProfile(
+                    id = user.id,
                     photoUrl = user.avatar ?: "",
                     username = user.username,
                     bio = user.bio ?: ""
@@ -175,6 +176,7 @@ fun Route.getAuthRouting() {
                 val user = authToken.user
 
                 val profile = UserProfile(
+                    id = user.id,
                     photoUrl = user.avatar ?: "",
                     username = user.username,
                     bio = user.bio ?: ""

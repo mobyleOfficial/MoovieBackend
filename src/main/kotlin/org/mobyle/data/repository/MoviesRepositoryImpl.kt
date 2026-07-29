@@ -62,32 +62,31 @@ class MoviesRepositoryImpl(
     }
 
     override suspend fun getUserFavoriteMovies(userId: String, page: Int): MovieListing {
-        // TODO: Replace with actual user data storage
-        return MovieListing(totalPages = 0, totalResults = 0, movies = emptyList())
+        return userDatabaseDataSource.getFavoriteMovies(userId, page)
     }
 
     override suspend fun getUserWatchList(userId: String, page: Int): MovieListing {
-        // TODO: Replace with actual user data storage
-        return MovieListing(totalPages = 0, totalResults = 0, movies = emptyList())
+        return userDatabaseDataSource.getWatchlistMovies(userId, page)
     }
 
     override suspend fun getMovieLists(page: Int, userId: String?): MovieListListing {
-        // TODO: Replace with actual user data storage
-        return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())
+        if (userId == null) {
+            return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())
+        }
+        return userDatabaseDataSource.getUserLists(userId, page)
     }
 
     override suspend fun getUserMovieLists(page: Int): MovieListListing {
-        // TODO: Replace with actual user data storage
+        // Requires authenticated userId — use GET /movies/lists?userId=xxx instead
         return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())
     }
 
     override suspend fun getMovieListDetail(listId: Int, page: Int): MovieListDetail {
-        // TODO: Replace with actual user data storage
-        return MovieListDetail(id = listId, name = "", creator = "")
+        return userDatabaseDataSource.getListDetail(listId.toLong(), page)
     }
 
     override suspend fun getFeaturedLists(page: Int): MovieListListing {
-        // TODO: Replace with actual user data storage
+        // No featured lists concept yet
         return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())
     }
 

@@ -1,12 +1,5 @@
 package org.mobyle.data.remote.filmow
 
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.doubleOrNull
@@ -19,16 +12,12 @@ import org.mobyle.domain.model.FilmowProfile
 import org.mobyle.domain.model.Movie
 import org.slf4j.LoggerFactory
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-class FilmowDataSourceImpl(
-    private val tmdbHttpClient: HttpClient
-) : FilmowDataSource {
+class FilmowDataSourceImpl : FilmowDataSource {
 
     private val log = LoggerFactory.getLogger(FilmowDataSourceImpl::class.java)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    private val tmdbIdCache = ConcurrentHashMap<String, Int?>()
 
     companion object {
         private const val SCRIPT_PATH = "scripts/filmow_scraper.py"
@@ -51,31 +40,46 @@ class FilmowDataSourceImpl(
             command.add(cookies)
         }
 
-        log.info("Starting Filmow scrape for @$username via Python sidecar")
+        log.info("[SCRAPE] Starting Python scraper for @$username")
+        val startTime = System.currentTimeMillis()
 
         val process = ProcessBuilder(command)
             .redirectErrorStream(false)
             .start()
 
+        log.info("[SCRAPE] Python process started, reading stdout...")
         val stdout = process.inputStream.bufferedReader().readText()
         val stderr = process.errorStream.bufferedReader().readText()
 
+        log.info("[SCRAPE] Waiting for Python process to finish...")
         val exited = process.waitFor(TIMEOUT_MINUTES, TimeUnit.MINUTES)
         if (!exited) {
             process.destroyForcibly()
             throw RuntimeException("Filmow scraper timed out after $TIMEOUT_MINUTES minutes")
         }
 
+        val scraperMs = System.currentTimeMillis() - startTime
+        log.info("[SCRAPE] Python scraper finished in ${scraperMs / 1000}s (exit ${process.exitValue()}, stdout ${stdout.length} chars)")
+
         if (stderr.isNotBlank()) {
-            log.info("Filmow scraper log:\n$stderr")
+            log.info("[SCRAPE] Scraper stderr:\n$stderr")
         }
 
         if (process.exitValue() != 0) {
-            log.error("Filmow scraper failed (exit ${process.exitValue()}): $stdout")
+            log.error("[SCRAPE] Scraper failed: $stdout")
             throw RuntimeException("Filmow scraper failed: $stdout")
         }
 
-        return parseResult(stdout)
+        log.info("[SCRAPE] Parsing JSON result...")
+        val profile = parseResult(stdout)
+        val totalMs = System.currentTimeMillis() - startTime
+        log.info("[SCRAPE] Done in ${totalMs / 1000}s — " +
+            "recentlyWatched=${profile.recentlyWatched.size}, " +
+            "watched=${profile.watched.size}, " +
+            "watchlist=${profile.watchlist.size}, " +
+            "favorites=${profile.favorites.size}, " +
+            "lists=${profile.lists.size}")
+        return profile
     }
 
     private suspend fun parseResult(jsonStr: String): FilmowProfile {
@@ -86,89 +90,23 @@ class FilmowDataSourceImpl(
             throw RuntimeException("Filmow scraper error: $errorMsg")
         }
 
-        // Resolve TMDB IDs in parallel for all sections except lists
-        return coroutineScope {
-            val recentlyWatchedDeferred = async { parseMovieListWithTmdb(obj["recentlyWatched"]) }
-            val watchedDeferred = async { parseMovieListWithTmdb(obj["watched"]) }
-            val watchlistDeferred = async { parseMovieListWithTmdb(obj["watchlist"]) }
-            val favoritesDeferred = async { parseMovieListWithTmdb(obj["favorites"]) }
-
-            FilmowProfile(
-                username = obj["username"]?.jsonPrimitive?.content ?: "",
-                displayName = obj["displayName"]?.jsonPrimitive?.content ?: "",
-                watchedCount = obj["watchedCount"]?.jsonPrimitive?.intOrNull ?: 0,
-                recentlyWatched = recentlyWatchedDeferred.await(),
-                watched = watchedDeferred.await(),
-                watchlist = watchlistDeferred.await(),
-                favorites = favoritesDeferred.await(),
-                lists = parseListList(obj["lists"]),
-                errors = obj["errors"]?.jsonArray
-                    ?.map { it.jsonPrimitive.content }
-                    ?: emptyList()
-            )
-        }
-    }
-
-    /**
-     * Parses movies and resolves TMDB IDs via search (title+year) in parallel.
-     * Used for watched, watchlist, favorites, recentlyWatched.
-     */
-    private suspend fun parseMovieListWithTmdb(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
-        if (element == null || element !is JsonArray) return emptyList()
-
-        data class ParsedItem(
-            val title: String,
-            val localTitle: String?,
-            val originalTitle: String?,
-            val year: String?,
-            val posterPath: String?,
-            val voteAverage: Double
+        return FilmowProfile(
+            username = obj["username"]?.jsonPrimitive?.content ?: "",
+            displayName = obj["displayName"]?.jsonPrimitive?.content ?: "",
+            watchedCount = obj["watchedCount"]?.jsonPrimitive?.intOrNull ?: 0,
+            recentlyWatched = parseMovieListLight(obj["recentlyWatched"]),
+            watched = parseMovieListLight(obj["watched"]),
+            watchlist = parseMovieListLight(obj["watchlist"]),
+            favorites = parseMovieListLight(obj["favorites"]),
+            lists = parseListList(obj["lists"]),
+            errors = obj["errors"]?.jsonArray
+                ?.map { it.jsonPrimitive.content }
+                ?: emptyList()
         )
-
-        val parsed = element.mapNotNull { item ->
-            try {
-                val movie = item.jsonObject
-                val rawTitle = movie["title"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                val year = movie["year"]?.jsonPrimitive?.content
-                val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
-                ParsedItem(
-                    cleanTitle,
-                    movie["localTitle"]?.jsonPrimitive?.content,
-                    movie["originalTitle"]?.jsonPrimitive?.content,
-                    year,
-                    movie["posterUrl"]?.jsonPrimitive?.content,
-                    movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-                )
-            } catch (e: Exception) {
-                log.warn("Failed to parse movie item: ${e.message}")
-                null
-            }
-        }
-
-        return coroutineScope {
-            parsed.map { item ->
-                async {
-                    val tmdbId = searchTmdbId(item.title, item.year)
-                    if (tmdbId == null) {
-                        log.warn("Movie not found on TMDB: '${item.title}' (${item.year})")
-                        return@async null
-                    }
-                    Movie(
-                        id = tmdbId,
-                        title = item.title,
-                        localTitle = item.localTitle,
-                        originalTitle = item.originalTitle,
-                        overview = "",
-                        posterPath = item.posterPath,
-                        voteAverage = item.voteAverage
-                    )
-                }
-            }.awaitAll().filterNotNull()
-        }
     }
 
     /**
-     * Parses movies without resolving TMDB IDs. Used for list movies.
+     * Parses movies from scraped JSON without external API calls.
      */
     private fun parseMovieListLight(element: kotlinx.serialization.json.JsonElement?): List<Movie> {
         if (element == null || element !is JsonArray) return emptyList()
@@ -180,44 +118,26 @@ class FilmowDataSourceImpl(
                 val year = movie["year"]?.jsonPrimitive?.content
                 val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
 
+                val filmowId = movie["filmowId"]?.jsonPrimitive?.content
+                val posterUrl = movie["posterUrl"]?.jsonPrimitive?.content
+                val movieId = filmowId?.toIntOrNull()?.let { -it }
+                    ?: -(cleanTitle + (year ?: "") + (posterUrl ?: "")).hashCode().and(Int.MAX_VALUE)
+
                 Movie(
-                    id = -1,
+                    id = movieId,
                     title = cleanTitle,
                     localTitle = movie["localTitle"]?.jsonPrimitive?.content,
                     originalTitle = movie["originalTitle"]?.jsonPrimitive?.content,
                     overview = "",
                     posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                    filmowId = movie["filmowId"]?.jsonPrimitive?.content
+                    userRating = movie["userRating"]?.jsonPrimitive?.doubleOrNull,
+                    filmowId = filmowId
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")
                 null
             }
-        }
-    }
-
-    /**
-     * Searches TMDB by title + year. Cached to avoid duplicate requests.
-     */
-    private suspend fun searchTmdbId(title: String, year: String?): Int? {
-        val cacheKey = "$title|$year"
-        tmdbIdCache[cacheKey]?.let { return it }
-
-        return try {
-            val response = tmdbHttpClient.get("search/movie") {
-                parameter("query", title)
-                if (year != null) parameter("year", year)
-            }
-            val body = response.bodyAsText()
-            val result = json.parseToJsonElement(body).jsonObject
-            val results = result["results"]?.jsonArray
-            val tmdbId = results?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.intOrNull
-            tmdbIdCache[cacheKey] = tmdbId
-            tmdbId
-        } catch (e: Exception) {
-            log.debug("Failed to search TMDB for '$title' ($year): ${e.message}")
-            null
         }
     }
 

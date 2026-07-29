@@ -26,9 +26,12 @@ object UserFollowsTable : LongIdTable("user_follows") {
 object MoviesTable : LongIdTable("movies") {
     val tmdbId = integer("tmdb_id").uniqueIndex()
     val title = varchar("title", 500)
+    val localTitle = varchar("local_title", 500).nullable()
     val originalTitle = varchar("original_title", 500).nullable()
     val year = integer("year").nullable()
     val posterPath = varchar("poster_path", 500).nullable()
+    val voteAverage = float("vote_average").nullable()
+    val filmowId = varchar("filmow_id", 50).nullable()
 }
 
 object UserMoviesTable : LongIdTable("user_movies") {
