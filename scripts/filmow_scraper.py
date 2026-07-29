@@ -134,6 +134,8 @@ def parse_movie_item_from_list(item, status):
     if not link:
         return None
 
+    filmow_id = item.get("data-movie-pk", "") or link.get("data-movie-pk", "")
+
     img = item.select_one("img.lazyload") or item.select_one("img")
     alt_text = img.get("alt", "") if img else ""
     title = link.get("title", "").strip() or alt_text or link.get_text(strip=True)
@@ -167,6 +169,7 @@ def parse_movie_item_from_list(item, status):
             pass
 
     return {
+        "filmowId": filmow_id or None,
         "title": title,
         "localTitle": local_title if original_title else None,
         "originalTitle": original_title,
@@ -216,6 +219,7 @@ def parse_movie_item_from_div(item, status):
     year = year_match.group(1) if year_match else None
 
     return {
+        "filmowId": a.get("data-movie-pk", "") or None,
         "title": title,
         "localTitle": local_title if original_title else None,
         "originalTitle": original_title,
@@ -337,7 +341,6 @@ def scrape_list_detail(session, href, errors):
 
             parsed = parse_movie_item_from_div(item, "Lista")
             if parsed:
-                parsed["filmowId"] = a.get("data-movie-pk", "")
                 movies.append(parsed)
 
         log(f"    page {page_num}/{total_pages} -> {len(items)} items")

@@ -279,7 +279,9 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                         localTitle = row[MoviesTable.localTitle],
                         originalTitle = row[MoviesTable.originalTitle],
                         posterPath = row[MoviesTable.posterPath],
-                        releaseDate = row[MoviesTable.year]?.toString()
+                        voteAverage = row[MoviesTable.voteAverage]?.toDouble() ?: 0.0,
+                        releaseDate = row[MoviesTable.year]?.toString(),
+                        filmowId = row[MoviesTable.filmowId]
                     )
                 }
 
@@ -302,9 +304,10 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
             localTitle = row[MoviesTable.localTitle],
             originalTitle = row[MoviesTable.originalTitle],
             posterPath = row[MoviesTable.posterPath],
-            voteAverage = 0.0,
+            voteAverage = row[MoviesTable.voteAverage]?.toDouble() ?: 0.0,
             userRating = row[UserMoviesTable.rating]?.toDouble(),
-            releaseDate = row[MoviesTable.year]?.toString()
+            releaseDate = row[MoviesTable.year]?.toString(),
+            filmowId = row[MoviesTable.filmowId]
         )
     }
 
@@ -322,6 +325,8 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
             it[originalTitle] = movie.originalTitle
             it[year] = movie.releaseDate?.take(4)?.toIntOrNull()
             it[posterPath] = movie.posterPath
+            it[voteAverage] = movie.voteAverage.takeIf { v -> v > 0.0 }?.toFloat()
+            it[filmowId] = movie.filmowId
         }.value
     }
 
