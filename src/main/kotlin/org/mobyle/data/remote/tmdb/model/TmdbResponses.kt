@@ -48,14 +48,19 @@ data class TmdbCredits(
 
 @Serializable
 data class TmdbCrewMember(
+    val id: Int? = null,
     val name: String? = null,
-    val job: String? = null
+    val job: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null
 )
 
 @Serializable
 data class TmdbCastMember(
+    val id: Int? = null,
     val name: String? = null,
-    val character: String? = null
+    val character: String? = null,
+    val order: Int? = null,
+    @SerialName("profile_path") val profilePath: String? = null
 )
 
 @Serializable

@@ -31,7 +31,47 @@ object MoviesTable : LongIdTable("movies") {
     val year = integer("year").nullable()
     val posterPath = varchar("poster_path", 500).nullable()
     val voteAverage = float("vote_average").nullable()
-    val filmowId = varchar("filmow_id", 50).nullable()
+    val filmowId = varchar("filmow_id", 50).nullable().index("idx_movies_filmow_id")
+    val overview = text("overview").nullable()
+    val backdropPath = varchar("backdrop_path", 500).nullable()
+    val releaseDate = varchar("release_date", 20).nullable()
+    val runtime = integer("runtime").nullable()
+    val tagline = varchar("tagline", 1000).nullable()
+    val letterboxdId = varchar("letterboxd_id", 100).nullable().index("idx_movies_letterboxd_id")
+    val enrichedAt = timestamp("enriched_at").nullable()
+    val needsEnrichment = bool("needs_enrichment").default(true)
+}
+
+object GenresTable : LongIdTable("genres") {
+    val tmdbId = integer("tmdb_id").uniqueIndex()
+    val name = varchar("name", 100)
+}
+
+object MovieGenresTable : LongIdTable("movie_genres") {
+    val movieId = reference("movie_id", MoviesTable)
+    val genreId = reference("genre_id", GenresTable)
+
+    init {
+        uniqueIndex("uq_movie_genre", movieId, genreId)
+    }
+}
+
+object PeopleTable : LongIdTable("people") {
+    val tmdbId = integer("tmdb_id").uniqueIndex()
+    val name = varchar("name", 255)
+    val profilePath = varchar("profile_path", 500).nullable()
+}
+
+object MovieCastTable : LongIdTable("movie_cast") {
+    val movieId = reference("movie_id", MoviesTable)
+    val personId = reference("person_id", PeopleTable)
+    val role = varchar("role", 50)
+    val character = varchar("character", 255).nullable()
+    val position = integer("position").default(0)
+
+    init {
+        uniqueIndex("uq_movie_person_role", movieId, personId, role)
+    }
 }
 
 object UserMoviesTable : LongIdTable("user_movies") {

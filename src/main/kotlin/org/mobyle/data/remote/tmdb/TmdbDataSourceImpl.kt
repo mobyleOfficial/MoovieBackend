@@ -21,10 +21,11 @@ class TmdbDataSourceImpl(
         }.body()
     }
 
-    override suspend fun searchMovies(query: String, page: Int): TmdbMovieListResponse {
+    override suspend fun searchMovies(query: String, page: Int, year: Int?): TmdbMovieListResponse {
         return httpClient.get("search/movie") {
             parameter("query", query)
             parameter("page", page)
+            if (year != null) parameter("year", year)
         }.body()
     }
 

@@ -13,6 +13,7 @@ import org.mobyle.data.local.database.UserListItemsTable
 import org.mobyle.data.local.database.UserListsTable
 import org.mobyle.data.local.database.UserMoviesTable
 import org.mobyle.data.local.database.UsersTable
+import org.mobyle.data.local.movies.MovieCatalogDataSource
 import org.mobyle.domain.model.FilmowList
 import org.mobyle.domain.model.Movie
 import org.mobyle.domain.model.MovieList
@@ -37,7 +38,9 @@ interface UserDatabaseDataSource {
     fun importLists(userExternalId: String, lists: List<FilmowList>)
 }
 
-class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
+class UserDatabaseDataSourceImpl(
+    private val movieCatalogDataSource: MovieCatalogDataSource
+) : UserDatabaseDataSource {
 
     override fun findByEmail(email: String): User? {
         return transaction {
@@ -273,6 +276,15 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                 .orderBy(UserListItemsTable.position, SortOrder.ASC)
                 .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
                 .map { row ->
+                    val movieDbId = row[MoviesTable.id].value
+                    val userRating = UserMoviesTable.selectAll()
+                        .where {
+                            (UserMoviesTable.userId eq userDbId) and
+                                (UserMoviesTable.movieId eq movieDbId)
+                        }
+                        .firstOrNull()
+                        ?.get(UserMoviesTable.rating)?.toDouble()
+
                     Movie(
                         id = row[MoviesTable.tmdbId],
                         title = row[MoviesTable.title],
@@ -280,7 +292,8 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                         originalTitle = row[MoviesTable.originalTitle],
                         posterPath = row[MoviesTable.posterPath],
                         voteAverage = row[MoviesTable.voteAverage]?.toDouble() ?: 0.0,
-                        releaseDate = row[MoviesTable.year]?.toString(),
+                        userRating = userRating,
+                        releaseDate = row[MoviesTable.releaseDate] ?: row[MoviesTable.year]?.toString(),
                         filmowId = row[MoviesTable.filmowId]
                     )
                 }
@@ -303,31 +316,21 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
             title = row[MoviesTable.title],
             localTitle = row[MoviesTable.localTitle],
             originalTitle = row[MoviesTable.originalTitle],
+            overview = row[MoviesTable.overview] ?: "",
             posterPath = row[MoviesTable.posterPath],
+            backdropPath = row[MoviesTable.backdropPath],
             voteAverage = row[MoviesTable.voteAverage]?.toDouble() ?: 0.0,
             userRating = row[UserMoviesTable.rating]?.toDouble(),
-            releaseDate = row[MoviesTable.year]?.toString(),
+            releaseDate = row[MoviesTable.releaseDate] ?: row[MoviesTable.year]?.toString(),
             filmowId = row[MoviesTable.filmowId]
         )
     }
 
     private fun ensureMovie(movie: Movie): Long {
-        val existing = MoviesTable.selectAll()
-            .where { MoviesTable.tmdbId eq movie.id }
-            .firstOrNull()
-
-        if (existing != null) return existing[MoviesTable.id].value
-
-        return MoviesTable.insertAndGetId {
-            it[tmdbId] = movie.id
-            it[title] = movie.title
-            it[localTitle] = movie.localTitle
-            it[originalTitle] = movie.originalTitle
-            it[year] = movie.releaseDate?.take(4)?.toIntOrNull()
-            it[posterPath] = movie.posterPath
-            it[voteAverage] = movie.voteAverage.takeIf { v -> v > 0.0 }?.toFloat()
-            it[filmowId] = movie.filmowId
-        }.value
+        return movieCatalogDataSource.upsertMovie(
+            movie = movie,
+            filmowId = movie.filmowId
+        )
     }
 
     override fun importMovies(

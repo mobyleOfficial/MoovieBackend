@@ -1,29 +1,133 @@
 package org.mobyle.data.repository
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.mobyle.data.local.movies.MovieCatalogDataSource
 import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.data.remote.tmdb.TmdbDataSource
 import org.mobyle.data.remote.tmdb.toDomain
+import org.mobyle.data.service.MovieEnrichmentService
 import org.mobyle.domain.model.*
 import org.mobyle.domain.repository.MoviesRepository
 import org.mobyle.model.MovieListing
 import org.mobyle.model.MovieListListing
 import org.mobyle.model.MovieReviewListing
+import org.slf4j.LoggerFactory
 
 class MoviesRepositoryImpl(
     private val tmdbDataSource: TmdbDataSource,
-    private val userDatabaseDataSource: UserDatabaseDataSource
+    private val userDatabaseDataSource: UserDatabaseDataSource,
+    private val movieCatalogDataSource: MovieCatalogDataSource,
+    private val enrichmentService: MovieEnrichmentService
 ) : MoviesRepository {
 
+    private val log = LoggerFactory.getLogger(MoviesRepositoryImpl::class.java)
+
     override suspend fun getTrendingMovies(page: Int): MovieListing {
-        return tmdbDataSource.getTrendingMovies(page).toDomain()
+        val listing = tmdbDataSource.getTrendingMovies(page).toDomain()
+        cacheMovieListAsync(listing.movies)
+        return listing
     }
 
     override suspend fun getMovieDetail(movieId: Int): MovieDetail {
-        return tmdbDataSource.getMovieDetail(movieId).toDomain()
+        // If negative ID, resolve to real TMDB ID first
+        if (movieId < 0) {
+            val resolved = resolveNegativeId(movieId)
+            if (resolved != null) return resolved
+        }
+
+        val local = movieCatalogDataSource.getLocalMovieDetail(movieId)
+        if (local != null) return local
+
+        return fetchAndCacheDetail(movieId)
+    }
+
+    override suspend fun lookupMovieDetail(movieId: Int?, filmowId: String?, title: String?): MovieDetail? {
+        // 1. By TMDB ID (positive)
+        if (movieId != null && movieId > 0) {
+            return getMovieDetail(movieId)
+        }
+
+        // 2. By filmowId → find in local DB
+        if (filmowId != null) {
+            val movie = movieCatalogDataSource.findByFilmowId(filmowId)
+            if (movie != null) {
+                if (movie.id > 0) return getMovieDetail(movie.id)
+                val resolved = resolveNegativeId(movie.id)
+                if (resolved != null) return resolved
+            }
+        }
+
+        // 3. By negative TMDB ID (from scraper hash)
+        if (movieId != null && movieId < 0) {
+            val resolved = resolveNegativeId(movieId)
+            if (resolved != null) return resolved
+        }
+
+        // 4. By title → try local DB first, then TMDB
+        if (title != null) {
+            val localMovie = movieCatalogDataSource.findByTitle(title)
+            if (localMovie != null) {
+                if (localMovie.id > 0) return getMovieDetail(localMovie.id)
+                val resolved = resolveNegativeId(localMovie.id)
+                if (resolved != null) return resolved
+            }
+
+            val searchResult = tmdbDataSource.searchMovies(title, page = 1)
+            val bestMatch = searchResult.results.firstOrNull() ?: return null
+            return getMovieDetail(bestMatch.id)
+        }
+
+        return null
+    }
+
+    private suspend fun resolveNegativeId(negativeId: Int): MovieDetail? {
+        val movie = movieCatalogDataSource.findByTmdbId(negativeId) ?: return null
+
+        val year = movie.releaseDate?.take(4)?.toIntOrNull()
+        val searchResult = tmdbDataSource.searchMovies(movie.title, page = 1, year = year)
+        val bestMatch = searchResult.results.firstOrNull() ?: return null
+
+        // Resolve the placeholder
+        val dbId = movieCatalogDataSource.getDbIdByFilmowId(movie.filmowId ?: "")
+        if (dbId != null) {
+            movieCatalogDataSource.resolveScrapedMovie(
+                oldDbId = dbId,
+                realTmdbId = bestMatch.id,
+                filmowId = movie.filmowId
+            )
+        }
+
+        return fetchAndCacheDetail(bestMatch.id)
+    }
+
+    private suspend fun fetchAndCacheDetail(tmdbId: Int): MovieDetail {
+        val response = tmdbDataSource.getMovieDetail(tmdbId)
+        val detail = response.toDomain()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                movieCatalogDataSource.upsertMovie(
+                    Movie(
+                        id = tmdbId, title = detail.title, overview = detail.overview,
+                        posterPath = detail.posterPath, backdropPath = detail.backdropPath,
+                        voteAverage = detail.voteAverage, releaseDate = detail.releaseDate
+                    )
+                )
+                movieCatalogDataSource.enrichMovie(tmdbId, detail, response.credits)
+            } catch (e: Exception) {
+                log.warn("Failed to cache movie detail $tmdbId: ${e.message}")
+            }
+        }
+
+        return detail
     }
 
     override suspend fun searchMovies(query: String, page: Int): MovieListing {
-        return tmdbDataSource.searchMovies(query, page).toDomain()
+        val listing = tmdbDataSource.searchMovies(query, page).toDomain()
+        cacheMovieListAsync(listing.movies)
+        return listing
     }
 
     override suspend fun discoverMovies(
@@ -37,9 +141,21 @@ class MoviesRepositoryImpl(
         country: String?,
         voteCountGte: Int?
     ): MovieListing {
-        return tmdbDataSource.discoverMovies(
+        val listing = tmdbDataSource.discoverMovies(
             page, year, releaseDateGte, releaseDateLte, sortBy, genres, language, country, voteCountGte
         ).toDomain()
+        cacheMovieListAsync(listing.movies)
+        return listing
+    }
+
+    private fun cacheMovieListAsync(movies: List<Movie>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                movieCatalogDataSource.cacheMovieList(movies)
+            } catch (e: Exception) {
+                log.warn("Failed to cache movie list: ${e.message}")
+            }
+        }
     }
 
     override suspend fun getGenres(): List<Genre> {
