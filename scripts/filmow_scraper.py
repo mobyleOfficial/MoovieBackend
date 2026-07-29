@@ -91,7 +91,7 @@ def scrape_profile_page(session, username):
         # Recently watched from .last-seen section
         last_seen = soup.select_one(".last-seen")
         if last_seen:
-            items = last_seen.select(".recent-movies-list > div.movie_list_item")
+            items = last_seen.select(".recent-movies-list div.movie_list_item")
             for item in items:
                 mi = item.select_one("div.movie-item")
                 if not mi:
@@ -164,8 +164,7 @@ def parse_movie_item_from_list(item, status):
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": 0.0,
-        "userRating": user_rating,
+        "voteAverage": float(user_rating) if user_rating is not None else 0.0,
         "status": status,
     }
 
@@ -213,8 +212,7 @@ def parse_movie_item_from_div(item, status):
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": vote_average,
-        "userRating": user_rating,
+        "voteAverage": float(user_rating) if user_rating is not None else vote_average,
         "status": status,
     }
 

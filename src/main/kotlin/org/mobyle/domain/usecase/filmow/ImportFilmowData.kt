@@ -10,42 +10,50 @@ class ImportFilmowData(
     private val log = LoggerFactory.getLogger(ImportFilmowData::class.java)
 
     operator fun invoke(userExternalId: String, profile: FilmowProfile) {
-        log.info("Importing Filmow data for user $userExternalId: " +
-            "${profile.watched.size} watched, ${profile.watchlist.size} watchlist, " +
-            "${profile.favorites.size} favorites, ${profile.lists.size} lists")
+        log.info("[IMPORT] Starting — ${profile.watched.size} watched, " +
+            "${profile.watchlist.size} watchlist, ${profile.favorites.size} favorites, " +
+            "${profile.lists.size} lists")
 
         if (profile.watched.isNotEmpty()) {
+            log.info("[IMPORT] Importing ${profile.watched.size} watched movies...")
             userDatabaseDataSource.importMovies(
                 userExternalId = userExternalId,
                 movies = profile.watched,
                 status = "watched"
             )
+            log.info("[IMPORT] Watched done.")
         }
 
         if (profile.watchlist.isNotEmpty()) {
+            log.info("[IMPORT] Importing ${profile.watchlist.size} watchlist movies...")
             userDatabaseDataSource.importMovies(
                 userExternalId = userExternalId,
                 movies = profile.watchlist,
                 status = "want_to_watch"
             )
+            log.info("[IMPORT] Watchlist done.")
         }
 
         if (profile.favorites.isNotEmpty()) {
+            log.info("[IMPORT] Importing ${profile.favorites.size} favorite movies...")
             userDatabaseDataSource.importMovies(
                 userExternalId = userExternalId,
                 movies = profile.favorites,
                 status = "watched",
                 isFavorite = true
             )
+            log.info("[IMPORT] Favorites done.")
         }
 
         if (profile.lists.isNotEmpty()) {
+            log.info("[IMPORT] Importing ${profile.lists.size} lists...")
             userDatabaseDataSource.importLists(
                 userExternalId = userExternalId,
                 lists = profile.lists
             )
+            log.info("[IMPORT] Lists done.")
         }
 
-        log.info("Filmow import completed for user $userExternalId")
+        log.info("[IMPORT] All done for user $userExternalId")
     }
 }
