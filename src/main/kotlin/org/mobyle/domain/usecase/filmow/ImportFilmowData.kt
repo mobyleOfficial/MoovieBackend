@@ -54,6 +54,15 @@ class ImportFilmowData(
             log.info("[IMPORT] Lists done.")
         }
 
+        if (profile.recentlyWatched.isNotEmpty()) {
+            log.info("[IMPORT] Importing ${profile.recentlyWatched.size} recently watched movies...")
+            userDatabaseDataSource.importRecentlyWatched(
+                userExternalId = userExternalId,
+                movies = profile.recentlyWatched
+            )
+            log.info("[IMPORT] Recently watched done.")
+        }
+
         log.info("[IMPORT] All done for user $userExternalId")
     }
 }

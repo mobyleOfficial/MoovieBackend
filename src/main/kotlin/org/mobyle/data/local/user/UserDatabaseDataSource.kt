@@ -37,6 +37,7 @@ interface UserDatabaseDataSource {
     fun getUserLists(userExternalId: String, page: Int, pageSize: Int = 20): MovieListListing
     fun getListDetail(listId: Long, page: Int, pageSize: Int = 20): MovieListDetail
     fun importMovies(userExternalId: String, movies: List<Movie>, status: String, isFavorite: Boolean = false)
+    fun importRecentlyWatched(userExternalId: String, movies: List<Movie>)
     fun importLists(userExternalId: String, lists: List<FilmowList>)
 }
 
@@ -400,6 +401,36 @@ class UserDatabaseDataSourceImpl(
                             it[watchedAt] = now
                         }
                     }
+                }
+            }
+        }
+    }
+
+    override fun importRecentlyWatched(userExternalId: String, movies: List<Movie>) {
+        transaction {
+            val userDbId = resolveUserDbId(userExternalId) ?: return@transaction
+            val now = Clock.System.now()
+
+            // Stagger watchedAt: first item (most recent) gets now + N seconds,
+            // so the list order from Filmow is preserved in ORDER BY watchedAt DESC
+            for ((index, movie) in movies.withIndex()) {
+                if (movie.id == 0) continue
+                val movieDbId = ensureMovie(movie)
+                val staggeredWatchedAt = now.plus(kotlin.time.Duration.parse("${movies.size - index}m"))
+
+                UserMoviesTable.upsert(
+                    UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource
+                ) {
+                    it[userId] = userDbId
+                    it[movieId] = movieDbId
+                    it[status] = "watched"
+                    it[rating] = movie.userRating?.toFloat()
+                    it[isFavorite] = false
+                    it[importSource] = "filmow"
+                    it[importedAt] = now
+                    it[createdAt] = now
+                    it[updatedAt] = now
+                    it[watchedAt] = staggeredWatchedAt
                 }
             }
         }
