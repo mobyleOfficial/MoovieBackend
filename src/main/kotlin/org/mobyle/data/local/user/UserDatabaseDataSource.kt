@@ -276,6 +276,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                     Movie(
                         id = row[MoviesTable.tmdbId],
                         title = row[MoviesTable.title],
+                        localTitle = row[MoviesTable.localTitle],
                         originalTitle = row[MoviesTable.originalTitle],
                         posterPath = row[MoviesTable.posterPath],
                         releaseDate = row[MoviesTable.year]?.toString()
@@ -298,6 +299,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
         return Movie(
             id = row[MoviesTable.tmdbId],
             title = row[MoviesTable.title],
+            localTitle = row[MoviesTable.localTitle],
             originalTitle = row[MoviesTable.originalTitle],
             posterPath = row[MoviesTable.posterPath],
             voteAverage = 0.0,
@@ -316,6 +318,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
         return MoviesTable.insertAndGetId {
             it[tmdbId] = movie.id
             it[title] = movie.title
+            it[localTitle] = movie.localTitle
             it[originalTitle] = movie.originalTitle
             it[year] = movie.releaseDate?.take(4)?.toIntOrNull()
             it[posterPath] = movie.posterPath
@@ -333,7 +336,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
             val now = Clock.System.now()
 
             for (movie in movies) {
-                if (movie.id <= 0) continue
+                if (movie.id == 0) continue
                 val movieDbId = ensureMovie(movie)
 
                 UserMoviesTable.upsert(
@@ -371,7 +374,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                 }
 
                 filmowList.movies.forEachIndexed { index, movie ->
-                    if (movie.id <= 0) return@forEachIndexed
+                    if (movie.id == 0) return@forEachIndexed
                     val movieDbId = ensureMovie(movie)
 
                     UserListItemsTable.upsert(UserListItemsTable.listId, UserListItemsTable.movieId) {

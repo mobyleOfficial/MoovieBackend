@@ -118,8 +118,13 @@ class FilmowDataSourceImpl : FilmowDataSource {
                 val year = movie["year"]?.jsonPrimitive?.content
                 val cleanTitle = rawTitle.replace(Regex("\\(\\d{4}\\)"), "").trim()
 
+                val filmowId = movie["filmowId"]?.jsonPrimitive?.content
+                val posterUrl = movie["posterUrl"]?.jsonPrimitive?.content
+                val movieId = filmowId?.toIntOrNull()?.let { -it }
+                    ?: -(cleanTitle + (year ?: "") + (posterUrl ?: "")).hashCode().and(Int.MAX_VALUE)
+
                 Movie(
-                    id = -1,
+                    id = movieId,
                     title = cleanTitle,
                     localTitle = movie["localTitle"]?.jsonPrimitive?.content,
                     originalTitle = movie["originalTitle"]?.jsonPrimitive?.content,
@@ -127,7 +132,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
                     posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                     userRating = movie["userRating"]?.jsonPrimitive?.doubleOrNull,
-                    filmowId = movie["filmowId"]?.jsonPrimitive?.content
+                    filmowId = filmowId
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")
