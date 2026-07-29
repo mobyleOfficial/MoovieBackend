@@ -126,6 +126,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
                     overview = "",
                     posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                    userRating = movie["userRating"]?.jsonPrimitive?.doubleOrNull,
                     filmowId = movie["filmowId"]?.jsonPrimitive?.content
                 )
             } catch (e: Exception) {

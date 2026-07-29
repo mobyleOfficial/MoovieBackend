@@ -176,7 +176,7 @@ class UserDatabaseDataSourceImpl : UserDatabaseDataSource {
                     it[userId] = userDbId
                     it[movieId] = movieDbId
                     it[UserMoviesTable.status] = status
-                    it[rating] = movie.voteAverage.takeIf { v -> v > 0.0 }?.toFloat()
+                    it[rating] = movie.userRating?.toFloat()
                     it[UserMoviesTable.isFavorite] = isFavorite
                     it[importSource] = "filmow"
                     it[importedAt] = now

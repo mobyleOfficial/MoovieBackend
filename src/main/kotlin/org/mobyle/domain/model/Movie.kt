@@ -12,6 +12,7 @@ data class Movie(
     val posterPath: String? = null,
     val backdropPath: String? = null,
     val voteAverage: Double = 0.0,
+    val userRating: Double? = null,
     val releaseDate: String? = null,
     val filmowId: String? = null
 )

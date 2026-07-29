@@ -104,9 +104,9 @@ def scrape_profile_page(session, username):
                 # Override user rating from stars above the movie-item
                 stars = item.select_one(".user-extras__item[title]")
                 if stars:
-                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", stars.get("title", ""))
+                    rating_match = re.search(r"Nota:\s*([0-5](?:[.,]\d)?)", stars.get("title", ""))
                     if rating_match:
-                        parsed["userRating"] = int(float(rating_match.group(1).replace(",", ".")))
+                        parsed["userRating"] = float(rating_match.group(1).replace(",", "."))
 
                 recent.append(parsed)
 
@@ -156,7 +156,7 @@ def parse_movie_item_from_list(item, status):
     if rating_el:
         rating_match = re.search(r"Nota:\s*([0-5](?:[.,]5)?)", rating_el.get("title", ""))
         if rating_match:
-            user_rating = int(float(rating_match.group(1).replace(",", ".")))
+            user_rating = float(rating_match.group(1).replace(",", "."))
 
     return {
         "title": title,
@@ -164,7 +164,8 @@ def parse_movie_item_from_list(item, status):
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": float(user_rating) if user_rating is not None else 0.0,
+        "voteAverage": 0.0,
+        "userRating": user_rating,
         "status": status,
     }
 
@@ -199,7 +200,7 @@ def parse_movie_item_from_div(item, status):
     user_rating = None
     if ur_el:
         try:
-            user_rating = int(re.sub(r"[^0-9]", "", ur_el.get_text()))
+            user_rating = float(re.sub(r"[^0-9.]", "", ur_el.get_text()))
         except ValueError:
             pass
 
@@ -212,7 +213,8 @@ def parse_movie_item_from_div(item, status):
         "originalTitle": original_title,
         "year": year,
         "posterUrl": poster_url,
-        "voteAverage": float(user_rating) if user_rating is not None else vote_average,
+        "voteAverage": vote_average,
+        "userRating": user_rating,
         "status": status,
     }
 
