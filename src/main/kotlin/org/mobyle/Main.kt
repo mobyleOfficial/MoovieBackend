@@ -186,5 +186,20 @@ fun Application.configureRouting() {
         getCommentsRouting()
         getArticlesRouting()
         getFilmowRouting()
+
+        // TODO: remove — temporary endpoint to reset movie data
+        post("/admin/reset-db") {
+            transaction {
+                exec("DELETE FROM movie_cast")
+                exec("DELETE FROM movie_genres")
+                exec("DELETE FROM user_list_items")
+                exec("DELETE FROM user_lists")
+                exec("DELETE FROM user_movies")
+                exec("DELETE FROM movies")
+                exec("DELETE FROM people")
+            }
+            log.info("[ADMIN] Database movie data reset")
+            call.respond(io.ktor.http.HttpStatusCode.OK, mapOf("status" to "reset complete"))
+        }
     }
 }
