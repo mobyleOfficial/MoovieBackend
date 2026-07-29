@@ -3,9 +3,11 @@ package org.mobyle.data.local.user
 import kotlinx.datetime.Clock
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
 import org.mobyle.data.local.database.MoviesTable
 import org.mobyle.data.local.database.UserFollowsTable
@@ -347,20 +349,56 @@ class UserDatabaseDataSourceImpl(
                 if (movie.id == 0) continue
                 val movieDbId = ensureMovie(movie)
 
-                UserMoviesTable.upsert(
-                    UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource
-                ) {
-                    it[userId] = userDbId
-                    it[movieId] = movieDbId
-                    it[UserMoviesTable.status] = status
-                    it[rating] = movie.userRating?.toFloat()
-                    it[UserMoviesTable.isFavorite] = isFavorite
-                    it[importSource] = "filmow"
-                    it[importedAt] = now
-                    it[createdAt] = now
-                    it[updatedAt] = now
-                    if (status == "watched") {
-                        it[watchedAt] = now
+                if (isFavorite) {
+                    // For favorites: only set isFavorite flag, don't overwrite watchedAt
+                    val existing = UserMoviesTable.selectAll()
+                        .where {
+                            (UserMoviesTable.userId eq userDbId) and
+                                (UserMoviesTable.movieId eq movieDbId) and
+                                (UserMoviesTable.importSource eq "filmow")
+                        }
+                        .firstOrNull()
+
+                    if (existing != null) {
+                        UserMoviesTable.update({
+                            (UserMoviesTable.userId eq userDbId) and
+                                (UserMoviesTable.movieId eq movieDbId) and
+                                (UserMoviesTable.importSource eq "filmow")
+                        }) {
+                            it[UserMoviesTable.isFavorite] = true
+                            if (movie.userRating != null) it[rating] = movie.userRating.toFloat()
+                            it[updatedAt] = now
+                        }
+                    } else {
+                        UserMoviesTable.insert {
+                            it[userId] = userDbId
+                            it[movieId] = movieDbId
+                            it[UserMoviesTable.status] = status
+                            it[rating] = movie.userRating?.toFloat()
+                            it[UserMoviesTable.isFavorite] = true
+                            it[importSource] = "filmow"
+                            it[importedAt] = now
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                            it[watchedAt] = now
+                        }
+                    }
+                } else {
+                    UserMoviesTable.upsert(
+                        UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource
+                    ) {
+                        it[userId] = userDbId
+                        it[movieId] = movieDbId
+                        it[UserMoviesTable.status] = status
+                        it[rating] = movie.userRating?.toFloat()
+                        it[UserMoviesTable.isFavorite] = false
+                        it[importSource] = "filmow"
+                        it[importedAt] = now
+                        it[createdAt] = now
+                        it[updatedAt] = now
+                        if (status == "watched") {
+                            it[watchedAt] = now
+                        }
                     }
                 }
             }
