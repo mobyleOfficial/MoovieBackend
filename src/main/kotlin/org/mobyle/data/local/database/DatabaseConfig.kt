@@ -33,6 +33,10 @@ object DatabaseConfig {
             SchemaUtils.createMissingTablesAndColumns(
                 UsersTable,
                 MoviesTable,
+                GenresTable,
+                MovieGenresTable,
+                PeopleTable,
+                MovieCastTable,
                 UserMoviesTable,
                 UserFollowsTable,
                 UserListsTable,

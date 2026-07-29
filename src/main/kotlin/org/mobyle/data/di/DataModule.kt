@@ -11,10 +11,13 @@ import kotlinx.serialization.json.Json
 import org.mobyle.data.local.auth.TokenBlocklistDataSource
 import org.mobyle.data.local.oauth.OAuthStateDataSource
 import org.mobyle.data.local.oauth.OAuthStateDataSourceImpl
+import org.mobyle.data.local.movies.MovieCatalogDataSource
+import org.mobyle.data.local.movies.MovieCatalogDataSourceImpl
 import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.data.local.user.UserDatabaseDataSourceImpl
 import org.mobyle.data.local.user.UserLocalDataSource
 import org.mobyle.data.local.user.UserLocalDataSourceImpl
+import org.mobyle.data.service.MovieEnrichmentService
 import org.mobyle.data.remote.articles.ArticlesDataSource
 import org.mobyle.data.remote.articles.ArticlesDataSourceImpl
 import org.mobyle.data.remote.comments.CommentsDataSource
@@ -78,11 +81,24 @@ val dataModule = module {
         }
     }
 
+    single<MovieCatalogDataSource> {
+        MovieCatalogDataSourceImpl()
+    }
+
+    single<MovieEnrichmentService> {
+        MovieEnrichmentService(
+            catalogDataSource = get(),
+            tmdbDataSource = get()
+        )
+    }
+
     single<MoviesRepository> {
         try {
             MoviesRepositoryImpl(
                 tmdbDataSource = get(),
-                userDatabaseDataSource = get()
+                userDatabaseDataSource = get(),
+                movieCatalogDataSource = get(),
+                enrichmentService = get()
             )
         } catch (e: Exception) {
             throw IllegalStateException("Failed to create MoviesRepositoryImpl: ${e.message}", e)
@@ -127,7 +143,7 @@ val dataModule = module {
     }
 
     single<UserDatabaseDataSource> {
-        UserDatabaseDataSourceImpl()
+        UserDatabaseDataSourceImpl(movieCatalogDataSource = get())
     }
 
     single<TokenBlocklistDataSource> {

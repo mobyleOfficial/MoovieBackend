@@ -1,0 +1,28 @@
+package org.mobyle.data.local.movies
+
+import org.mobyle.domain.model.Movie
+import org.mobyle.domain.model.MovieDetail
+import org.mobyle.data.remote.tmdb.model.TmdbCredits
+
+interface MovieCatalogDataSource {
+    fun findByTmdbId(tmdbId: Int): Movie?
+    fun findByFilmowId(filmowId: String): Movie?
+    fun findByLetterboxdId(letterboxdId: String): Movie?
+    fun getDbIdByFilmowId(filmowId: String): Long?
+    fun upsertMovie(movie: Movie, filmowId: String? = null, letterboxdId: String? = null): Long
+    fun enrichMovie(tmdbId: Int, detail: MovieDetail, credits: TmdbCredits?)
+    fun resolveScrapedMovie(oldDbId: Long, realTmdbId: Int, filmowId: String?)
+    fun getMoviesNeedingEnrichment(limit: Int = 50): List<EnrichmentCandidate>
+    fun getLocalMovieDetail(tmdbId: Int): MovieDetail?
+    fun findByTitle(title: String): Movie?
+    fun cacheMovieList(movies: List<Movie>)
+}
+
+data class EnrichmentCandidate(
+    val dbId: Long,
+    val tmdbId: Int,
+    val title: String,
+    val year: Int?,
+    val filmowId: String?,
+    val needsResolution: Boolean
+)

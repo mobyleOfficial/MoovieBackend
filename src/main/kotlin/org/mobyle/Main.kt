@@ -13,8 +13,14 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import org.mobyle.data.local.database.DatabaseConfig
+import org.mobyle.data.local.database.GenresTable
 import org.mobyle.data.local.auth.TokenBlocklistDataSource
 import org.mobyle.data.remote.articles.ArticlesDataSource
+import org.mobyle.data.remote.tmdb.TmdbDataSource
+import org.mobyle.data.service.MovieEnrichmentService
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.ktor.ext.inject
 import org.mobyle.data.di.dataModule
 import org.mobyle.di.appModule
@@ -43,6 +49,8 @@ fun main() {
         configureRouting()
         scheduleArticleScraping()
         scheduleTokenBlocklistCleanup()
+        seedGenres()
+        startMovieEnrichment()
     }.start(wait = true)
 }
 
@@ -129,6 +137,35 @@ private fun Application.scheduleTokenBlocklistCleanup() {
             }
         }
     }
+}
+
+private fun Application.seedGenres() {
+    val tmdbDataSource by inject<TmdbDataSource>()
+    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        try {
+            val count = transaction { GenresTable.selectAll().count() }
+            if (count > 0L) return@launch
+
+            log.info("Seeding genres from TMDB...")
+            val genres = tmdbDataSource.getGenres().genres
+            transaction {
+                for (genre in genres) {
+                    GenresTable.insert {
+                        it[tmdbId] = genre.id
+                        it[name] = genre.name ?: ""
+                    }
+                }
+            }
+            log.info("Seeded ${genres.size} genres")
+        } catch (e: Exception) {
+            log.error("Genre seeding failed: ${e.message}")
+        }
+    }
+}
+
+private fun Application.startMovieEnrichment() {
+    val enrichmentService by inject<MovieEnrichmentService>()
+    enrichmentService.startBackgroundLoop(intervalMinutes = 5)
 }
 
 fun Application.configureRouting() {

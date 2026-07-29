@@ -9,7 +9,7 @@ import org.mobyle.domain.usecase.movies.*
 
 fun Route.getMoviesRouting() {
     val getTrendingMovies by injection<GetTrendingMovies>()
-    val getMovieDetail by injection<GetMovieDetail>()
+
     val searchMovies by injection<SearchMovies>()
     val discoverMovies by injection<DiscoverMovies>()
     val getGenres by injection<GetGenres>()
@@ -23,6 +23,24 @@ fun Route.getMoviesRouting() {
     val getMovieListDetail by injection<GetMovieListDetail>()
     val getFeaturedLists by injection<GetFeaturedLists>()
     val getRecentMovies by injection<GetRecentMovies>()
+    val lookupMovieDetail by injection<LookupMovieDetail>()
+
+    get("/movies") {
+        val filmowId = call.parameters["filmowId"]
+        val title = call.parameters["title"]
+
+        if (filmowId == null && title == null) {
+            call.respond(HttpStatusCode.BadRequest, "Query parameter 'filmowId' or 'title' is required")
+            return@get
+        }
+
+        val detail = lookupMovieDetail(null, filmowId, title)
+        if (detail == null) {
+            call.respond(HttpStatusCode.NotFound, mapOf("error" to "Movie not found"))
+        } else {
+            call.respond(detail)
+        }
+    }
 
     get("/movies/trending") {
         val page = call.parameters["page"]?.toIntOrNull() ?: 1
@@ -83,7 +101,12 @@ fun Route.getMoviesRouting() {
             call.respond(HttpStatusCode.BadRequest, "Invalid movie ID")
             return@get
         }
-        call.respond(getMovieDetail(movieId))
+        val detail = lookupMovieDetail(movieId, null, null)
+        if (detail == null) {
+            call.respond(HttpStatusCode.NotFound, mapOf("error" to "Movie not found"))
+        } else {
+            call.respond(detail)
+        }
     }
 
     get("/movies/{id}/reviews") {

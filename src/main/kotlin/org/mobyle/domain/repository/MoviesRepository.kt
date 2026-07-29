@@ -8,6 +8,7 @@ import org.mobyle.model.MovieReviewListing
 interface MoviesRepository {
     suspend fun getTrendingMovies(page: Int): MovieListing
     suspend fun getMovieDetail(movieId: Int): MovieDetail
+    suspend fun lookupMovieDetail(movieId: Int?, filmowId: String?, title: String?): MovieDetail?
     suspend fun searchMovies(query: String, page: Int): MovieListing
     suspend fun discoverMovies(
         page: Int,
