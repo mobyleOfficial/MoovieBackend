@@ -296,6 +296,7 @@ class MovieCatalogDataSourceImpl : MovieCatalogDataSource {
             MovieDetail(
                 id = row[MoviesTable.tmdbId],
                 title = row[MoviesTable.title],
+                originalTitle = row[MoviesTable.originalTitle],
                 overview = row[MoviesTable.overview] ?: "",
                 posterPath = row[MoviesTable.posterPath],
                 backdropPath = row[MoviesTable.backdropPath],

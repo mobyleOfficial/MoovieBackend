@@ -123,7 +123,8 @@ class MoviesRepositoryImpl(
             try {
                 movieCatalogDataSource.upsertMovie(
                     Movie(
-                        id = tmdbId, title = detail.title, overview = detail.overview,
+                        id = tmdbId, title = detail.title, originalTitle = detail.originalTitle,
+                        overview = detail.overview,
                         posterPath = detail.posterPath, backdropPath = detail.backdropPath,
                         voteAverage = detail.voteAverage, releaseDate = detail.releaseDate
                     )

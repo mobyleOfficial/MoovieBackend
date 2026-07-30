@@ -9,6 +9,7 @@ fun TmdbMovieResponse.toDomain(): Movie {
     return Movie(
         id = id,
         title = title ?: "",
+        originalTitle = originalTitle,
         overview = overview ?: "",
         posterPath = posterPath,
         backdropPath = backdropPath,
@@ -37,6 +38,7 @@ fun TmdbMovieDetailResponse.toDomain(): MovieDetail {
     return MovieDetail(
         id = id,
         title = title ?: "",
+        originalTitle = originalTitle,
         overview = overview ?: "",
         posterPath = posterPath,
         backdropPath = backdropPath,

@@ -151,7 +151,8 @@ class UserDatabaseDataSourceImpl(
             val userDbId = resolveUserDbId(userExternalId)
                 ?: return@transaction MovieListing(0, 0, emptyList())
 
-            val totalResults = UserMoviesTable.selectAll()
+            val totalResults = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
                 .where {
                     (UserMoviesTable.userId eq userDbId) and
                         (UserMoviesTable.isFavorite eq true)
@@ -181,7 +182,8 @@ class UserDatabaseDataSourceImpl(
             val userDbId = resolveUserDbId(userExternalId)
                 ?: return@transaction MovieListing(0, 0, emptyList())
 
-            val totalResults = UserMoviesTable.selectAll()
+            val totalResults = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
                 .where {
                     (UserMoviesTable.userId eq userDbId) and
                         (UserMoviesTable.status eq "want_to_watch")
@@ -226,7 +228,8 @@ class UserDatabaseDataSourceImpl(
                 .map { row ->
                     val listDbId = row[UserListsTable.id].value
 
-                    val movieCount = UserListItemsTable.selectAll()
+                    val movieCount = (UserListItemsTable innerJoin MoviesTable)
+                        .selectAll()
                         .where { UserListItemsTable.listId eq listDbId }
                         .count().toInt()
 
@@ -269,7 +272,8 @@ class UserDatabaseDataSourceImpl(
                 .where { UsersTable.id eq userDbId }
                 .firstOrNull()?.get(UsersTable.username) ?: ""
 
-            val totalMovies = UserListItemsTable.selectAll()
+            val totalMovies = (UserListItemsTable innerJoin MoviesTable)
+                .selectAll()
                 .where { UserListItemsTable.listId eq listId }
                 .count().toInt()
 
