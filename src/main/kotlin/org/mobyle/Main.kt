@@ -190,6 +190,8 @@ fun Application.configureRouting() {
         // TODO: remove — temporary endpoint to reset movie data
         post("/admin/reset-db") {
             transaction {
+                exec("DELETE FROM movie_similars")
+                exec("DELETE FROM movie_watch_providers")
                 exec("DELETE FROM movie_cast")
                 exec("DELETE FROM movie_genres")
                 exec("DELETE FROM user_list_items")

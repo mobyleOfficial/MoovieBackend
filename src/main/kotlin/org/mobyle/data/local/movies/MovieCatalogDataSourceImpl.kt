@@ -196,7 +196,9 @@ class MovieCatalogDataSourceImpl : MovieCatalogDataSource {
                     }
                 }
 
-                // Delete orphaned placeholder
+                // Delete orphaned placeholder (respect FK order)
+                MovieSimilarsTable.deleteWhere { MovieSimilarsTable.movieId eq oldDbId }
+                MovieWatchProvidersTable.deleteWhere { MovieWatchProvidersTable.movieId eq oldDbId }
                 MovieCastTable.deleteWhere { MovieCastTable.movieId eq oldDbId }
                 MovieGenresTable.deleteWhere { MovieGenresTable.movieId eq oldDbId }
                 MoviesTable.deleteWhere { MoviesTable.id eq oldDbId }
