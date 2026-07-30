@@ -38,7 +38,20 @@ class MoviesRepositoryImpl(
         }
 
         val local = movieCatalogDataSource.getLocalMovieDetail(movieId)
-        if (local != null) return local
+        if (local != null) {
+            // Check if similars/providers need refresh
+            val similarsCache = movieCatalogDataSource.getSimilarMovies(movieId)
+            val providersCache = movieCatalogDataSource.getWatchProviders(movieId)
+
+            if (similarsCache.isStale || providersCache.isStale) {
+                refreshVolatileData(movieId)
+            }
+
+            return local.copy(
+                similarMovies = similarsCache.data,
+                watchProviders = providersCache.data
+            )
+        }
 
         return fetchAndCacheDetail(movieId)
     }
@@ -116,12 +129,27 @@ class MoviesRepositoryImpl(
                     )
                 )
                 movieCatalogDataSource.enrichMovie(tmdbId, detail, response.credits)
+                movieCatalogDataSource.saveSimilarMovies(tmdbId, detail.similarMovies)
+                movieCatalogDataSource.saveWatchProviders(tmdbId, detail.watchProviders)
             } catch (e: Exception) {
                 log.warn("Failed to cache movie detail $tmdbId: ${e.message}")
             }
         }
 
         return detail
+    }
+
+    private fun refreshVolatileData(tmdbId: Int) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = tmdbDataSource.getMovieDetail(tmdbId)
+                val detail = response.toDomain()
+                movieCatalogDataSource.saveSimilarMovies(tmdbId, detail.similarMovies)
+                movieCatalogDataSource.saveWatchProviders(tmdbId, detail.watchProviders)
+            } catch (e: Exception) {
+                log.warn("Failed to refresh volatile data for $tmdbId: ${e.message}")
+            }
+        }
     }
 
     override suspend fun searchMovies(query: String, page: Int): MovieListing {

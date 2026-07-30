@@ -66,6 +66,8 @@ class MovieEnrichmentService(
         val detailResponse = tmdbDataSource.getMovieDetail(tmdbId)
         val detail = detailResponse.toDomain()
         catalogDataSource.enrichMovie(tmdbId, detail, detailResponse.credits)
+        catalogDataSource.saveSimilarMovies(tmdbId, detail.similarMovies)
+        catalogDataSource.saveWatchProviders(tmdbId, detail.watchProviders)
     }
 
     fun startBackgroundLoop(intervalMinutes: Long = 5) {

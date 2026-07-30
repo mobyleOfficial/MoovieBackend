@@ -270,6 +270,27 @@ class MovieCatalogDataSourceImpl : MovieCatalogDataSource {
                 .limit(10)
                 .map { it[PeopleTable.name] }
 
+            val similars = MovieSimilarsTable.selectAll()
+                .where { MovieSimilarsTable.movieId eq movieDbId }
+                .map { r ->
+                    Movie(
+                        id = r[MovieSimilarsTable.similarTmdbId],
+                        title = r[MovieSimilarsTable.title],
+                        posterPath = r[MovieSimilarsTable.posterPath],
+                        voteAverage = r[MovieSimilarsTable.voteAverage]?.toDouble() ?: 0.0,
+                        releaseDate = r[MovieSimilarsTable.releaseDate]
+                    )
+                }
+
+            val providers = MovieWatchProvidersTable.selectAll()
+                .where { MovieWatchProvidersTable.movieId eq movieDbId }
+                .map { r ->
+                    WatchProvider(
+                        name = r[MovieWatchProvidersTable.providerName],
+                        logoPath = r[MovieWatchProvidersTable.logoPath]
+                    )
+                }
+
             MovieDetail(
                 id = row[MoviesTable.tmdbId],
                 title = row[MoviesTable.title],
@@ -283,13 +304,111 @@ class MovieCatalogDataSourceImpl : MovieCatalogDataSource {
                 genres = genres,
                 director = director,
                 cast = cast,
-                watchProviders = emptyList(),
-                similarMovies = emptyList(),
+                watchProviders = providers,
+                similarMovies = similars,
                 popularReviews = emptyList(),
                 reviewCount = 0,
                 listCount = 0,
                 likeCount = 0
             )
+        }
+    }
+
+    override fun saveSimilarMovies(tmdbId: Int, similars: List<Movie>) {
+        transaction {
+            val movieDbId = MoviesTable.selectAll()
+                .where { MoviesTable.tmdbId eq tmdbId }
+                .firstOrNull()?.get(MoviesTable.id)?.value ?: return@transaction
+
+            val now = Clock.System.now()
+            for (movie in similars) {
+                MovieSimilarsTable.upsert(MovieSimilarsTable.movieId, MovieSimilarsTable.similarTmdbId) {
+                    it[movieId] = movieDbId
+                    it[similarTmdbId] = movie.id
+                    it[title] = movie.title
+                    it[posterPath] = movie.posterPath
+                    it[voteAverage] = movie.voteAverage.takeIf { v -> v > 0.0 }?.toFloat()
+                    it[releaseDate] = movie.releaseDate
+                    it[fetchedAt] = now
+                }
+            }
+        }
+    }
+
+    override fun saveWatchProviders(tmdbId: Int, providers: List<WatchProvider>) {
+        transaction {
+            val movieDbId = MoviesTable.selectAll()
+                .where { MoviesTable.tmdbId eq tmdbId }
+                .firstOrNull()?.get(MoviesTable.id)?.value ?: return@transaction
+
+            val now = Clock.System.now()
+            // Clear old providers and insert fresh
+            MovieWatchProvidersTable.deleteWhere { MovieWatchProvidersTable.movieId eq movieDbId }
+            for (provider in providers) {
+                MovieWatchProvidersTable.insert {
+                    it[movieId] = movieDbId
+                    it[providerName] = provider.name
+                    it[logoPath] = provider.logoPath
+                    it[fetchedAt] = now
+                }
+            }
+        }
+    }
+
+    override fun getSimilarMovies(tmdbId: Int): CachedData<List<Movie>> {
+        return transaction {
+            val movieDbId = MoviesTable.selectAll()
+                .where { MoviesTable.tmdbId eq tmdbId }
+                .firstOrNull()?.get(MoviesTable.id)?.value
+                ?: return@transaction CachedData(emptyList(), isStale = true)
+
+            val rows = MovieSimilarsTable.selectAll()
+                .where { MovieSimilarsTable.movieId eq movieDbId }
+                .toList()
+
+            if (rows.isEmpty()) return@transaction CachedData(emptyList(), isStale = true)
+
+            val oldestFetch = rows.minOf { it[MovieSimilarsTable.fetchedAt] }
+            val staleThreshold = Clock.System.now().minus(kotlin.time.Duration.parse("7d"))
+            val isStale = oldestFetch < staleThreshold
+
+            val movies = rows.map { r ->
+                Movie(
+                    id = r[MovieSimilarsTable.similarTmdbId],
+                    title = r[MovieSimilarsTable.title],
+                    posterPath = r[MovieSimilarsTable.posterPath],
+                    voteAverage = r[MovieSimilarsTable.voteAverage]?.toDouble() ?: 0.0,
+                    releaseDate = r[MovieSimilarsTable.releaseDate]
+                )
+            }
+            CachedData(movies, isStale)
+        }
+    }
+
+    override fun getWatchProviders(tmdbId: Int): CachedData<List<WatchProvider>> {
+        return transaction {
+            val movieDbId = MoviesTable.selectAll()
+                .where { MoviesTable.tmdbId eq tmdbId }
+                .firstOrNull()?.get(MoviesTable.id)?.value
+                ?: return@transaction CachedData(emptyList(), isStale = true)
+
+            val rows = MovieWatchProvidersTable.selectAll()
+                .where { MovieWatchProvidersTable.movieId eq movieDbId }
+                .toList()
+
+            if (rows.isEmpty()) return@transaction CachedData(emptyList(), isStale = true)
+
+            val oldestFetch = rows.minOf { it[MovieWatchProvidersTable.fetchedAt] }
+            val staleThreshold = Clock.System.now().minus(kotlin.time.Duration.parse("7d"))
+            val isStale = oldestFetch < staleThreshold
+
+            val providers = rows.map { r ->
+                WatchProvider(
+                    name = r[MovieWatchProvidersTable.providerName],
+                    logoPath = r[MovieWatchProvidersTable.logoPath]
+                )
+            }
+            CachedData(providers, isStale)
         }
     }
 

@@ -37,6 +37,8 @@ object DatabaseConfig {
                 MovieGenresTable,
                 PeopleTable,
                 MovieCastTable,
+                MovieSimilarsTable,
+                MovieWatchProvidersTable,
                 UserMoviesTable,
                 UserFollowsTable,
                 UserListsTable,

@@ -74,6 +74,31 @@ object MovieCastTable : LongIdTable("movie_cast") {
     }
 }
 
+object MovieSimilarsTable : LongIdTable("movie_similars") {
+    val movieId = reference("movie_id", MoviesTable)
+    val similarTmdbId = integer("similar_tmdb_id")
+    val title = varchar("title", 500)
+    val posterPath = varchar("poster_path", 500).nullable()
+    val voteAverage = float("vote_average").nullable()
+    val releaseDate = varchar("release_date", 20).nullable()
+    val fetchedAt = timestamp("fetched_at")
+
+    init {
+        uniqueIndex("uq_movie_similar", movieId, similarTmdbId)
+    }
+}
+
+object MovieWatchProvidersTable : LongIdTable("movie_watch_providers") {
+    val movieId = reference("movie_id", MoviesTable)
+    val providerName = varchar("provider_name", 255)
+    val logoPath = varchar("logo_path", 500).nullable()
+    val fetchedAt = timestamp("fetched_at")
+
+    init {
+        uniqueIndex("uq_movie_provider", movieId, providerName)
+    }
+}
+
 object UserMoviesTable : LongIdTable("user_movies") {
     val userId = reference("user_id", UsersTable)
     val movieId = reference("movie_id", MoviesTable)
