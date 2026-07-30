@@ -59,6 +59,7 @@ val dataModule = module {
                 url("https://api.themoviedb.org/3/")
                 headers.append(HttpHeaders.Authorization, "Bearer $apiKey")
                 headers.append(HttpHeaders.Accept, "application/json")
+                url.parameters.append("language", "pt-BR")
             }
             install(ContentNegotiation) {
                 json(Json {
