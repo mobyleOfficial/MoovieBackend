@@ -55,8 +55,10 @@ fun Route.getFilmowRouting() {
         }
 
         try {
+            println("[FILMOW] >>> Endpoint /filmow/scrape called. user=$userId, filmowUser=@${request.username}")
             log.info("[FILMOW] Starting scrape for Filmow user @${request.username} (moovie user $userId)")
             val profile = scrapeFilmowProfile(request.cookies, request.username)
+            println("[FILMOW] <<< Scrape returned. movies: watched=${profile.watched.size}, watchlist=${profile.watchlist.size}, favorites=${profile.favorites.size}, lists=${profile.lists.size}")
             log.info("[FILMOW] Scrape done. Starting import to DB...")
 
             try {
