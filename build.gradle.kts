@@ -18,6 +18,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation:2.3.0")
     implementation("io.ktor:ktor-server-status-pages:2.3.0")
     implementation("io.ktor:ktor-server-cors:2.3.0")
+    implementation("io.ktor:ktor-server-websockets:2.3.0")
     implementation("io.ktor:ktor-server-auth:2.3.0")
     implementation("ch.qos.logback:logback-classic:1.2.10")
 

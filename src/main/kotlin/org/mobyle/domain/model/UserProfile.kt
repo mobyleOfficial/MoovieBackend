@@ -11,5 +11,6 @@ data class UserProfile(
     val moviesWatchedCount: Int = 0,
     val followingCount: Int = 0,
     val followersCount: Int = 0,
-    val recentMovies: List<Movie> = emptyList()
+    val recentMovies: List<Movie> = emptyList(),
+    val isScraping: Boolean = false
 )

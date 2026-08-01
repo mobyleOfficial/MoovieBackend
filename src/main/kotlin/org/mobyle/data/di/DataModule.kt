@@ -24,6 +24,9 @@ import org.mobyle.data.remote.comments.CommentsDataSource
 import org.mobyle.data.remote.comments.CommentsDataSourceImpl
 import org.mobyle.data.remote.filmow.FilmowDataSource
 import org.mobyle.data.remote.filmow.FilmowDataSourceImpl
+import org.mobyle.data.service.ScrapeStatusManager
+import org.mobyle.data.service.WebSocketManager
+import org.mobyle.data.service.WsTokenManager
 import org.mobyle.data.remote.oauth.OAuthDataSource
 import org.mobyle.data.remote.oauth.OAuthDataSourceImpl
 import org.mobyle.data.remote.tmdb.TmdbDataSource
@@ -129,6 +132,12 @@ val dataModule = module {
     single<ArticlesRepository> {
         ArticlesRepositoryImpl(articlesDataSource = get())
     }
+
+    single<WebSocketManager> { WebSocketManager() }
+
+    single<WsTokenManager> { WsTokenManager() }
+
+    single<ScrapeStatusManager> { ScrapeStatusManager() }
 
     single<FilmowDataSource> {
         FilmowDataSourceImpl()
