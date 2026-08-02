@@ -36,8 +36,14 @@ class WebSocketManager {
     }
 
     suspend fun send(userId: String, message: WsMessage) {
-        val sessions = connections[userId] ?: return
+        val sessions = connections[userId]
+        if (sessions.isNullOrEmpty()) {
+            log.debug("[WS] No active sessions for user $userId, dropping message type=${message.type}")
+            return
+        }
+
         val text = json.encodeToString(message)
+        log.info("[WS] Sending message type=${message.type} to user $userId (${sessions.size} sessions)")
         val deadSessions = mutableListOf<DefaultWebSocketSession>()
 
         for (session in sessions) {
@@ -49,6 +55,9 @@ class WebSocketManager {
             }
         }
 
-        deadSessions.forEach { removeConnection(userId, it) }
+        if (deadSessions.isNotEmpty()) {
+            log.info("[WS] Cleaning up ${deadSessions.size} dead sessions for user $userId")
+            deadSessions.forEach { removeConnection(userId, it) }
+        }
     }
 }

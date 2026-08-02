@@ -61,10 +61,12 @@ fun Route.getWebSocketRouting() {
                     log.debug("[WS] Received from $userId: $text")
                 }
             }
+            log.info("[WS] Connection closed normally for user $userId")
         } catch (e: Exception) {
-            log.info("[WS] Connection closed for $userId: ${e.message}")
+            log.warn("[WS] Connection closed with error for user $userId: ${e.message}")
         } finally {
             webSocketManager.removeConnection(userId, this)
+            log.info("[WS] Session cleanup completed for user $userId")
         }
     }
 }
