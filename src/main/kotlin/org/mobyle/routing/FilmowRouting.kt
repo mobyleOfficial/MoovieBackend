@@ -15,6 +15,8 @@ import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
 import org.mobyle.data.service.ScrapeStatusManager
 import org.mobyle.data.service.WebSocketManager
 import org.mobyle.data.service.WsMessage
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("FilmowRouting")
@@ -72,13 +74,15 @@ fun Route.getFilmowRouting() {
             }
 
             scrapeStatusManager.clearScraping(user.id)
+            val recentlyWatchedJson = Json.encodeToString(profile.recentlyWatched)
             webSocketManager.send(user.id, WsMessage(
                 type = "scrape_finished",
                 payload = mapOf(
                     "watched" to profile.watched.size.toString(),
                     "watchlist" to profile.watchlist.size.toString(),
                     "favorites" to profile.favorites.size.toString(),
-                    "lists" to profile.lists.size.toString()
+                    "lists" to profile.lists.size.toString(),
+                    "recentlyWatched" to recentlyWatchedJson
                 )
             ))
 
