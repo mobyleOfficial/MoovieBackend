@@ -14,6 +14,7 @@ import org.mobyle.domain.usecase.profile.GetPublicProfile
 import org.mobyle.domain.usecase.profile.GetUserProfile
 import org.mobyle.domain.usecase.profile.UpdateUserProfile
 import org.mobyle.domain.usecase.auth.ValidateToken
+import org.mobyle.data.service.ScrapeStatusManager
 
 fun Route.getProfileRouting() {
     val getUserProfile by injection<GetUserProfile>()
@@ -21,6 +22,7 @@ fun Route.getProfileRouting() {
     val getPublicProfile by injection<GetPublicProfile>()
     val validateToken by injection<ValidateToken>()
     val userDatabaseDataSource by injection<UserDatabaseDataSource>()
+    val scrapeStatusManager by injection<ScrapeStatusManager>()
 
     get("/profile") {
         val principal = call.authenticateJWT(validateToken) ?: return@get
@@ -43,7 +45,8 @@ fun Route.getProfileRouting() {
             moviesWatchedCount = userDatabaseDataSource.countWatchedMovies(user.id),
             followingCount = userDatabaseDataSource.countFollowing(user.id),
             followersCount = userDatabaseDataSource.countFollowers(user.id),
-            recentMovies = userDatabaseDataSource.getRecentWatchedMovies(user.id, limit = 10)
+            recentMovies = userDatabaseDataSource.getRecentWatchedMovies(user.id, limit = 10),
+            isScraping = scrapeStatusManager.isScraping(user.id)
         )
         call.respond(HttpStatusCode.OK, profile)
     }

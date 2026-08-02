@@ -12,6 +12,11 @@ import org.mobyle.data.local.user.UserDatabaseDataSource
 import org.mobyle.domain.usecase.auth.ValidateToken
 import org.mobyle.domain.usecase.filmow.ImportFilmowData
 import org.mobyle.domain.usecase.filmow.ScrapeFilmowProfile
+import org.mobyle.data.service.ScrapeStatusManager
+import org.mobyle.data.service.WebSocketManager
+import org.mobyle.data.service.WsMessage
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("FilmowRouting")
@@ -21,6 +26,8 @@ fun Route.getFilmowRouting() {
     val importFilmowData by injection<ImportFilmowData>()
     val validateToken by injection<ValidateToken>()
     val userDatabaseDataSource by injection<UserDatabaseDataSource>()
+    val scrapeStatusManager by injection<ScrapeStatusManager>()
+    val webSocketManager by injection<WebSocketManager>()
 
     post("/filmow/scrape") {
         val principal = call.authenticateJWT(validateToken) ?: return@post
@@ -55,22 +62,37 @@ fun Route.getFilmowRouting() {
         }
 
         try {
-            println("[FILMOW] >>> Endpoint /filmow/scrape called. user=$userId, filmowUser=@${request.username}")
-            log.info("[FILMOW] Starting scrape for Filmow user @${request.username} (moovie user $userId)")
+            scrapeStatusManager.markScraping(user.id)
+            webSocketManager.send(user.id, WsMessage(type = "scrape_started"))
+
             val profile = scrapeFilmowProfile(request.cookies, request.username)
-            println("[FILMOW] <<< Scrape returned. movies: watched=${profile.watched.size}, watchlist=${profile.watchlist.size}, favorites=${profile.favorites.size}, lists=${profile.lists.size}")
-            log.info("[FILMOW] Scrape done. Starting import to DB...")
 
             try {
                 importFilmowData(user.id, profile)
-                log.info("[FILMOW] Import done.")
             } catch (e: Exception) {
                 log.error("[FILMOW] Import failed for user $userId: ${e.message}", e)
             }
 
-            log.info("[FILMOW] Sending response...")
+            scrapeStatusManager.clearScraping(user.id)
+            val recentlyWatchedJson = Json.encodeToString(profile.recentlyWatched)
+            webSocketManager.send(user.id, WsMessage(
+                type = "scrape_finished",
+                payload = mapOf(
+                    "watched" to profile.watched.size.toString(),
+                    "watchlist" to profile.watchlist.size.toString(),
+                    "favorites" to profile.favorites.size.toString(),
+                    "lists" to profile.lists.size.toString(),
+                    "recentlyWatched" to recentlyWatchedJson
+                )
+            ))
+
             call.respond(profile)
         } catch (e: Exception) {
+            scrapeStatusManager.clearScraping(user.id)
+            webSocketManager.send(user.id, WsMessage(
+                type = "scrape_failed",
+                payload = mapOf("error" to (e.message ?: "Unknown error"))
+            ))
             call.respond(
                 HttpStatusCode.InternalServerError,
                 mapOf(

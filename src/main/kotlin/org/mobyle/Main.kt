@@ -10,6 +10,8 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
+import io.ktor.server.websocket.*
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import org.mobyle.data.local.database.DatabaseConfig
@@ -31,6 +33,7 @@ import org.mobyle.routing.getCommentsRouting
 import org.mobyle.routing.getFilmowRouting
 import org.mobyle.routing.getMoviesRouting
 import org.mobyle.routing.getProfileRouting
+import org.mobyle.routing.getWebSocketRouting
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 import org.slf4j.LoggerFactory
@@ -46,12 +49,22 @@ fun main() {
         configureCors()
         configureStatusPages()
         configureKoin()
+        configureWebSockets()
         configureRouting()
         scheduleArticleScraping()
         scheduleTokenBlocklistCleanup()
         seedGenres()
         startMovieEnrichment()
     }.start(wait = true)
+}
+
+private fun Application.configureWebSockets() {
+    install(WebSockets) {
+        pingPeriod = 30.seconds
+        timeout = 15.seconds
+        maxFrameSize = Long.MAX_VALUE
+        masking = false
+    }
 }
 
 private fun Application.configureCors() {
@@ -186,6 +199,7 @@ fun Application.configureRouting() {
         getCommentsRouting()
         getArticlesRouting()
         getFilmowRouting()
+        getWebSocketRouting()
 
         // TODO: remove — temporary endpoint to reset movie data
         post("/admin/reset-db") {

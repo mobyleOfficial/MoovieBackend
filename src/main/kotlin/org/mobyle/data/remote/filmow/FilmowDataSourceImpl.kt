@@ -28,22 +28,17 @@ class FilmowDataSourceImpl : FilmowDataSource {
     }
 
     override suspend fun scrapeProfile(cookies: String, username: String): FilmowProfile {
-        println("[SCRAPE] >>> scrapeProfile called for @$username")
         val scriptFile = resolveScriptPath()
         if (!scriptFile.exists()) {
-            println("[SCRAPE] ERROR: Script not found at ${scriptFile.absolutePath}")
             throw IllegalStateException("Python scraper not found at: ${scriptFile.absolutePath}")
         }
-        println("[SCRAPE] Script found: ${scriptFile.absolutePath}")
 
         val pythonBin = resolveVenvPython()
-        println("[SCRAPE] Python binary: $pythonBin")
 
         val command = mutableListOf(pythonBin, scriptFile.absolutePath, username)
         if (cookies.isNotBlank()) {
             command.add(cookies)
         }
-        println("[SCRAPE] Command: ${command.joinToString(" ")}")
 
         val startTime = System.currentTimeMillis()
 
@@ -51,43 +46,30 @@ class FilmowDataSourceImpl : FilmowDataSource {
             .redirectErrorStream(false)
             .start()
 
-        println("[SCRAPE] Python process started (PID: ${process.pid()}), streaming stderr...")
-
-        // Stream stderr in real time so logs appear immediately
         val stderrThread = thread(isDaemon = true, name = "scraper-stderr") {
             process.errorStream.bufferedReader().useLines { lines ->
                 for (line in lines) {
-                    println("[SCRAPE/py] $line")
+                    log.debug("[SCRAPE/py] $line")
                 }
             }
         }
 
-        println("[SCRAPE] Reading stdout...")
         val stdout = process.inputStream.bufferedReader().readText()
-        println("[SCRAPE] Stdout read complete (${stdout.length} chars)")
 
-        println("[SCRAPE] Waiting for process to finish...")
         val exited = process.waitFor(TIMEOUT_MINUTES, TimeUnit.MINUTES)
         stderrThread.join(5000)
         if (!exited) {
-            println("[SCRAPE] TIMEOUT after $TIMEOUT_MINUTES minutes, killing process")
             process.destroyForcibly()
             throw RuntimeException("Filmow scraper timed out after $TIMEOUT_MINUTES minutes")
         }
 
-        val scraperMs = System.currentTimeMillis() - startTime
-        println("[SCRAPE] Process exited (code=${process.exitValue()}) in ${scraperMs / 1000}s")
-
         if (process.exitValue() != 0) {
-            println("[SCRAPE] FAILED. stdout: $stdout")
             throw RuntimeException("Filmow scraper failed: $stdout")
         }
 
-        log.info("[SCRAPE] Parsing JSON result...")
         val profile = parseResult(stdout)
         val totalMs = System.currentTimeMillis() - startTime
         log.info("[SCRAPE] Done in ${totalMs / 1000}s — " +
-            "recentlyWatched=${profile.recentlyWatched.size}, " +
             "watched=${profile.watched.size}, " +
             "watchlist=${profile.watchlist.size}, " +
             "favorites=${profile.favorites.size}, " +
