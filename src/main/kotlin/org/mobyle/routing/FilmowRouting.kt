@@ -60,18 +60,13 @@ fun Route.getFilmowRouting() {
         }
 
         try {
-            println("[FILMOW] >>> Endpoint /filmow/scrape called. user=$userId, filmowUser=@${request.username}")
-            log.info("[FILMOW] Starting scrape for Filmow user @${request.username} (moovie user $userId)")
             scrapeStatusManager.markScraping(user.id)
             webSocketManager.send(user.id, WsMessage(type = "scrape_started"))
 
             val profile = scrapeFilmowProfile(request.cookies, request.username)
-            println("[FILMOW] <<< Scrape returned. movies: watched=${profile.watched.size}, watchlist=${profile.watchlist.size}, favorites=${profile.favorites.size}, lists=${profile.lists.size}")
-            log.info("[FILMOW] Scrape done. Starting import to DB...")
 
             try {
                 importFilmowData(user.id, profile)
-                log.info("[FILMOW] Import done.")
             } catch (e: Exception) {
                 log.error("[FILMOW] Import failed for user $userId: ${e.message}", e)
             }
@@ -87,7 +82,6 @@ fun Route.getFilmowRouting() {
                 )
             ))
 
-            log.info("[FILMOW] Sending response...")
             call.respond(profile)
         } catch (e: Exception) {
             scrapeStatusManager.clearScraping(user.id)
