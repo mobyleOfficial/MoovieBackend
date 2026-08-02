@@ -14,9 +14,6 @@ import org.mobyle.data.service.WebSocketManager
 import org.mobyle.data.service.WsTokenManager
 import org.mobyle.di.injection
 import org.mobyle.domain.usecase.auth.ValidateToken
-import org.slf4j.LoggerFactory
-
-private val log = LoggerFactory.getLogger("WebSocketRouting")
 
 fun Route.getWebSocketRouting() {
     val webSocketManager by injection<WebSocketManager>()
@@ -29,7 +26,7 @@ fun Route.getWebSocketRouting() {
         val userId = principal.claims.userId
         val nonce = wsTokenManager.generateToken(userId)
 
-        log.info("[WS] Nonce token generated for user $userId")
+        println("[WS] Nonce token generated for user $userId")
         call.respond(HttpStatusCode.OK, mapOf("token" to nonce))
     }
 
@@ -39,34 +36,34 @@ fun Route.getWebSocketRouting() {
             ?: call.parameters["token"]
 
         if (nonce.isNullOrBlank()) {
-            log.warn("[WS] Connection rejected: missing token")
+            println("[WS] Connection rejected: missing token")
             close(CloseReason(4401, "Missing token"))
             return@webSocket
         }
 
         val userId = wsTokenManager.validateAndConsume(nonce)
         if (userId == null) {
-            log.warn("[WS] Connection rejected: invalid or expired nonce")
+            println("[WS] Connection rejected: invalid or expired nonce")
             close(CloseReason(4401, "Invalid or expired token"))
             return@webSocket
         }
 
-        log.info("[WS] User $userId authenticated and connected")
+        println("[WS] User $userId authenticated and connected")
         webSocketManager.addConnection(userId, this)
 
         try {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
-                    log.debug("[WS] Received from $userId: $text")
+                    println("[WS] Received from $userId: $text")
                 }
             }
-            log.info("[WS] Connection closed normally for user $userId")
+            println("[WS] Connection closed normally for user $userId")
         } catch (e: Exception) {
-            log.warn("[WS] Connection closed with error for user $userId: ${e.message}")
+            println("[WS] Connection closed with error for user $userId: ${e.message}")
         } finally {
             webSocketManager.removeConnection(userId, this)
-            log.info("[WS] Session cleanup completed for user $userId")
+            println("[WS] Session cleanup completed for user $userId")
         }
     }
 }
