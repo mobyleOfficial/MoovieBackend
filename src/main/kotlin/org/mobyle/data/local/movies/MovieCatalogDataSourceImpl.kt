@@ -223,6 +223,7 @@ class MovieCatalogDataSourceImpl : MovieCatalogDataSource {
                         dbId = row[MoviesTable.id].value,
                         tmdbId = tmdbId,
                         title = row[MoviesTable.title],
+                        originalTitle = row[MoviesTable.originalTitle],
                         year = row[MoviesTable.year],
                         filmowId = row[MoviesTable.filmowId],
                         needsResolution = tmdbId < 0

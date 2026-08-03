@@ -32,6 +32,7 @@ data class EnrichmentCandidate(
     val dbId: Long,
     val tmdbId: Int,
     val title: String,
+    val originalTitle: String?,
     val year: Int?,
     val filmowId: String?,
     val needsResolution: Boolean

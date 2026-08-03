@@ -5,7 +5,7 @@ import org.mobyle.data.remote.tmdb.model.*
 interface TmdbDataSource {
     suspend fun getTrendingMovies(page: Int): TmdbMovieListResponse
     suspend fun getMovieDetail(movieId: Int): TmdbMovieDetailResponse
-    suspend fun searchMovies(query: String, page: Int, year: Int? = null): TmdbMovieListResponse
+    suspend fun searchMovies(query: String, page: Int, year: Int? = null, language: String? = null): TmdbMovieListResponse
     suspend fun discoverMovies(
         page: Int,
         year: Int?,
