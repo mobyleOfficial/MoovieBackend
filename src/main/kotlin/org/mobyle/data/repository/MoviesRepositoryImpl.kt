@@ -214,6 +214,10 @@ class MoviesRepositoryImpl(
         return userDatabaseDataSource.getWatchlistMovies(userId, page)
     }
 
+    override suspend fun getUserWatchedMovies(userId: String, page: Int): MovieListing {
+        return userDatabaseDataSource.getWatchedMovies(userId, page)
+    }
+
     override suspend fun getMovieLists(page: Int, userId: String?): MovieListListing {
         if (userId == null) {
             return MovieListListing(totalPages = 0, totalResults = 0, lists = emptyList())

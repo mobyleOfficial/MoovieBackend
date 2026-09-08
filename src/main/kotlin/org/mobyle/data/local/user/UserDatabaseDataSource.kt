@@ -1,6 +1,7 @@
 package org.mobyle.data.local.user
 
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
@@ -23,6 +24,7 @@ import org.mobyle.domain.model.MovieListDetail
 import org.mobyle.domain.model.User
 import org.mobyle.model.MovieListing
 import org.mobyle.model.MovieListListing
+import org.slf4j.LoggerFactory
 
 interface UserDatabaseDataSource {
     fun findByEmail(email: String): User?
@@ -34,6 +36,7 @@ interface UserDatabaseDataSource {
     fun getRecentWatchedMovies(userExternalId: String, limit: Int): List<Movie>
     fun getFavoriteMovies(userExternalId: String, page: Int, pageSize: Int = 20): MovieListing
     fun getWatchlistMovies(userExternalId: String, page: Int, pageSize: Int = 20): MovieListing
+    fun getWatchedMovies(userExternalId: String, page: Int, pageSize: Int = 20): MovieListing
     fun getUserLists(userExternalId: String, page: Int, pageSize: Int = 20): MovieListListing
     fun getListDetail(listId: Long, page: Int, pageSize: Int = 20): MovieListDetail
     fun importMovies(userExternalId: String, movies: List<Movie>, status: String, isFavorite: Boolean = false)
@@ -44,6 +47,8 @@ interface UserDatabaseDataSource {
 class UserDatabaseDataSourceImpl(
     private val movieCatalogDataSource: MovieCatalogDataSource
 ) : UserDatabaseDataSource {
+
+    private val log = LoggerFactory.getLogger(UserDatabaseDataSourceImpl::class.java)
 
     override fun findByEmail(email: String): User? {
         return transaction {
@@ -208,6 +213,45 @@ class UserDatabaseDataSourceImpl(
         }
     }
 
+    override fun getWatchedMovies(userExternalId: String, page: Int, pageSize: Int): MovieListing {
+        return transaction {
+            val userDbId = resolveUserDbId(userExternalId)
+            log.info("[WATCHED] externalId=$userExternalId dbId=$userDbId page=$page")
+            if (userDbId == null) return@transaction MovieListing(0, 0, emptyList())
+
+            val totalResults = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.status eq "watched")
+                }
+                .count().toInt()
+
+            val movies = (UserMoviesTable innerJoin MoviesTable)
+                .selectAll()
+                .where {
+                    (UserMoviesTable.userId eq userDbId) and
+                        (UserMoviesTable.status eq "watched")
+                }
+                // watchedAt alone produces ties when movies are bulk-imported at the same timestamp,
+                // causing non-deterministic OFFSET behavior (duplicates across pages).
+                // UserMoviesTable.id as tiebreaker gives a stable, unique order.
+                .orderBy(
+                    UserMoviesTable.watchedAt to SortOrder.DESC_NULLS_LAST,
+                    UserMoviesTable.id to SortOrder.DESC
+                )
+                .limit(pageSize, offset = ((page - 1) * pageSize).toLong())
+                .map { row -> rowToMovie(row) }
+
+            log.info("[WATCHED] totalResults=$totalResults movies=${movies.size}")
+            MovieListing(
+                totalPages = (totalResults + pageSize - 1) / pageSize,
+                totalResults = totalResults,
+                movies = movies
+            )
+        }
+    }
+
     override fun getUserLists(userExternalId: String, page: Int, pageSize: Int): MovieListListing {
         return transaction {
             val userDbId = resolveUserDbId(userExternalId)
@@ -329,7 +373,8 @@ class UserDatabaseDataSourceImpl(
             voteAverage = row[MoviesTable.voteAverage]?.toDouble() ?: 0.0,
             userRating = row[UserMoviesTable.rating]?.toDouble(),
             releaseDate = row[MoviesTable.releaseDate] ?: row[MoviesTable.year]?.toString(),
-            filmowId = row[MoviesTable.filmowId]
+            filmowId = row[MoviesTable.filmowId],
+            watchedAt = row[UserMoviesTable.watchedAt]?.toString()
         )
     }
 
@@ -389,6 +434,10 @@ class UserDatabaseDataSourceImpl(
                         }
                     }
                 } else {
+                    val movieWatchedAt = if (status == "watched") {
+                        movie.watchedAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: now
+                    } else null
+
                     UserMoviesTable.upsert(
                         UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource
                     ) {
@@ -401,9 +450,7 @@ class UserDatabaseDataSourceImpl(
                         it[importedAt] = now
                         it[createdAt] = now
                         it[updatedAt] = now
-                        if (status == "watched") {
-                            it[watchedAt] = now
-                        }
+                        if (movieWatchedAt != null) it[watchedAt] = movieWatchedAt
                     }
                 }
             }
@@ -415,12 +462,14 @@ class UserDatabaseDataSourceImpl(
             val userDbId = resolveUserDbId(userExternalId) ?: return@transaction
             val now = Clock.System.now()
 
-            // Stagger watchedAt: first item (most recent) gets now + N seconds,
-            // so the list order from Filmow is preserved in ORDER BY watchedAt DESC
+            // Use the scraped watchedAt when available. Fall back to a staggered timestamp
+            // so the profile-page order is preserved in ORDER BY watchedAt DESC.
             for ((index, movie) in movies.withIndex()) {
                 if (movie.id == 0) continue
                 val movieDbId = ensureMovie(movie)
-                val staggeredWatchedAt = now.plus(kotlin.time.Duration.parse("${movies.size - index}m"))
+                val staggeredWatchedAt = movie.watchedAt
+                    ?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                    ?: now.plus(kotlin.time.Duration.parse("${movies.size - index}m"))
 
                 UserMoviesTable.upsert(
                     UserMoviesTable.userId, UserMoviesTable.movieId, UserMoviesTable.importSource

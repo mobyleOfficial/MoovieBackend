@@ -2,6 +2,7 @@ package org.mobyle.data.remote.filmow
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -49,7 +50,7 @@ class FilmowDataSourceImpl : FilmowDataSource {
         val stderrThread = thread(isDaemon = true, name = "scraper-stderr") {
             process.errorStream.bufferedReader().useLines { lines ->
                 for (line in lines) {
-                    log.debug("[SCRAPE/py] $line")
+                    println("[SCRAPE/py] $line")
                 }
             }
         }
@@ -124,10 +125,11 @@ class FilmowDataSourceImpl : FilmowDataSource {
                     localTitle = movie["localTitle"]?.jsonPrimitive?.content,
                     originalTitle = movie["originalTitle"]?.jsonPrimitive?.content,
                     overview = "",
-                    posterPath = movie["posterUrl"]?.jsonPrimitive?.content,
+                    posterPath = posterUrl,
                     voteAverage = movie["voteAverage"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                     userRating = movie["userRating"]?.jsonPrimitive?.doubleOrNull,
-                    filmowId = filmowId
+                    filmowId = filmowId,
+                    watchedAt = movie["watchedAt"]?.takeIf { it != JsonNull }?.jsonPrimitive?.content
                 )
             } catch (e: Exception) {
                 log.warn("Failed to parse movie item: ${e.message}")

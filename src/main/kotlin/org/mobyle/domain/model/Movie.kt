@@ -14,5 +14,6 @@ data class Movie(
     val voteAverage: Double = 0.0,
     val userRating: Double? = null,
     val releaseDate: String? = null,
-    val filmowId: String? = null
+    val filmowId: String? = null,
+    val watchedAt: String? = null
 )
