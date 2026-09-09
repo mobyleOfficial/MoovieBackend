@@ -97,6 +97,17 @@ fun Route.getMoviesRouting() {
     }
 
     get("/movies/{id}") {
+        val filmowId = call.parameters["filmowId"]
+        if (filmowId != null) {
+            val detail = lookupMovieDetail(null, filmowId, null)
+            if (detail == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Movie not found"))
+            } else {
+                call.respond(detail)
+            }
+            return@get
+        }
+
         val movieId = call.parameters["id"]?.toIntOrNull()
         if (movieId == null) {
             call.respond(HttpStatusCode.BadRequest, "Invalid movie ID")
