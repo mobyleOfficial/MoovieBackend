@@ -62,13 +62,24 @@ class MoviesRepositoryImpl(
             return getMovieDetail(movieId)
         }
 
-        // 2. By filmowId → find in local DB
+        // 2. By filmowId → find in local DB, then search TMDB by title
         if (filmowId != null) {
             val movie = movieCatalogDataSource.findByFilmowId(filmowId)
+            println("[LOOKUP] filmowId=$filmowId → DB result: ${movie?.title} (id=${movie?.id})")
             if (movie != null) {
-                if (movie.id > 0) return getMovieDetail(movie.id)
-                val resolved = resolveNegativeId(movie.id)
-                if (resolved != null) return resolved
+                val year = movie.releaseDate?.take(4)?.toIntOrNull()
+                val searchResult = tmdbDataSource.searchMovies(movie.title, page = 1, year = year)
+                println("[LOOKUP] TMDB search '${movie.title}' year=$year → ${searchResult.results.size} results")
+                val bestMatch = searchResult.results.firstOrNull()
+                if (bestMatch != null) return getMovieDetail(bestMatch.id)
+
+                val localTitle = movie.localTitle
+                if (localTitle != null) {
+                    val fallbackResult = tmdbDataSource.searchMovies(localTitle, page = 1, year = year)
+                    println("[LOOKUP] TMDB fallback search '${localTitle}' year=$year → ${fallbackResult.results.size} results")
+                    val fallbackMatch = fallbackResult.results.firstOrNull()
+                    if (fallbackMatch != null) return getMovieDetail(fallbackMatch.id)
+                }
             }
         }
 
