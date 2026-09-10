@@ -577,21 +577,31 @@ def scrape_lists(session, username, errors):
     return lists
 
 
-def fetch_watched_at(session, href, errors):
-    """Fetch the movie detail page and extract the watched date from id='watched-in'."""
+def fetch_detail_data(session, href, errors):
+    """Fetch the movie detail page and extract watched date and poster URL."""
     if not href:
-        return None
+        return None, None
     url = f"{BASE_URL}{href}"
     try:
         soup = get_page(session, url)
+
+        watched_at = None
         el = soup.select_one('[id="watched-in"]')
-        if not el:
-            return None
-        raw = el.get("datetime") or el.get("value") or el.get_text(strip=True)
-        return parse_date_str(raw)
+        if el:
+            raw = el.get("datetime") or el.get("value") or el.get_text(strip=True)
+            watched_at = parse_date_str(raw)
+
+        poster_url = None
+        poster_wrapper = soup.select_one(".movie__poster-wrapper")
+        if poster_wrapper:
+            first_link = poster_wrapper.select_one("a[href]")
+            if first_link:
+                poster_url = first_link.get("href")
+
+        return watched_at, poster_url
     except Exception as e:
-        errors.append(f"fetch_watched_at {href} failed: {e}")
-        return None
+        errors.append(f"fetch_detail_data {href} failed: {e}")
+        return None, None
 
 
 def scrape_profile(username, cookies_str=""):
@@ -604,10 +614,13 @@ def scrape_profile(username, cookies_str=""):
     log(f"[PHASE] scrape_profile_page done in {time.time() - t_start:.1f}s")
 
     t = time.time()
-    log(f"[PHASE] fetching watchedAt for {len(recently_watched)} recently watched movies...")
+    log(f"[PHASE] fetching detail data for {len(recently_watched)} recently watched movies...")
     for movie in recently_watched:
-        movie["watchedAt"] = fetch_watched_at(session, movie.get("href", ""), errors)
-    log(f"[PHASE] recently watched watchedAt done in {time.time() - t:.1f}s")
+        watched_at, poster_url = fetch_detail_data(session, movie.get("href", ""), errors)
+        movie["watchedAt"] = watched_at
+        if poster_url:
+            movie["posterUrl"] = poster_url
+    log(f"[PHASE] recently watched detail data done in {time.time() - t:.1f}s")
 
     t = time.time()
     log(f"[PHASE] scrape_section filmes/ja-vi...")
@@ -615,10 +628,13 @@ def scrape_profile(username, cookies_str=""):
     log(f"[PHASE] filmes/ja-vi done: {len(watched)} movies in {time.time() - t:.1f}s")
 
     t = time.time()
-    log(f"[PHASE] fetching watchedAt for {len(watched)} movies...")
+    log(f"[PHASE] fetching detail data for {len(watched)} movies...")
     for movie in watched:
-        movie["watchedAt"] = fetch_watched_at(session, movie.get("href", ""), errors)
-    log(f"[PHASE] watchedAt done in {time.time() - t:.1f}s")
+        watched_at, poster_url = fetch_detail_data(session, movie.get("href", ""), errors)
+        movie["watchedAt"] = watched_at
+        if poster_url:
+            movie["posterUrl"] = poster_url
+    log(f"[PHASE] detail data done in {time.time() - t:.1f}s")
 
     t = time.time()
     log(f"[PHASE] scrape_section filmes/quero-ver...")
